@@ -949,11 +949,13 @@ function renderRpSection() {
 
   // RESP education
   const respNow=39837, nyr=12, vyr=14;
-  const respNoor = fv(respNow, contrib.resp*12, r, nyr);
+  const cesg = 1000; // govt match 20% on $2,500/child x2 kids
+  const respAnnual = contrib.resp*12 + cesg;
+  const respNoor = fv(respNow, respAnnual, r, nyr);
   const cn = 120000*Math.pow(1+inf,nyr);
   const cv = 120000*Math.pow(1+inf,vyr);
   const rem = Math.max(respNoor-cn, 0);
-  const respVeer = fv(rem, contrib.resp*12, r, 2);
+  const respVeer = fv(rem, respAnnual, r, 2);
   const veerGap = Math.max(cv-respVeer, 0);
   const topUp = veerGap>0 ? Math.round(veerGap*(r/12)/(Math.pow(1+r/12,vyr*12)-1)) : 0;
 
