@@ -959,11 +959,11 @@ function renderRpSection() {
   const veerGap = Math.max(cv-respVeer, 0);
   const topUp = veerGap>0 ? Math.round(veerGap*(r/12)/(Math.pow(1+r/12,vyr*12)-1)) : 0;
 
-  // Retirement income
+  // Retirement income — driven by expenses table
   const govtMo = 3500;
-  const target = contrib.target || 6500;
-  const fromPort = (target-govtMo)*12;
-  const needed4pct = fromPort/0.04;
+  const retTotal = (window.retExpenses || []).reduce((s,r) => s+(parseFloat(r.amt)||0), 0) || 4300;
+  const fromPort = Math.max(0, retTotal - govtMo) * 12;
+  const needed4pct = fromPort / 0.04;
   const surplus = liqReal - needed4pct;
 
   // ── INPUT FIELD HELPER ────────────────────────────────────
@@ -986,39 +986,75 @@ function renderRpSection() {
   ];
 
   container.innerHTML = `
+
     <!-- TOOLBAR -->
     <div style="padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.08);display:flex;justify-content:space-between;align-items:center;background:#fafaf8;">
-      <span style="font-size:11px;color:#aaa;letter-spacing:0.04em;">All figures in today's purchasing power · 2.5% inflation · 25 years · Edit contributions to update projections</span>
+      <span style="font-size:11px;color:#aaa;letter-spacing:0.04em;">All figures in today's purchasing power · 2.5% inflation · 25 years</span>
       <button onclick="lockRp()" style="font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#888;">🔒 Lock</button>
     </div>
 
-    <!-- HEADLINE CARDS -->
-    <div style="padding:20px 16px;border-bottom:1px solid rgba(0,0,0,0.08);">
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#aaa;margin-bottom:12px;">Retirement Readiness</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
-        <div style="background:#f0f7ee;border:1px solid rgba(42,110,30,0.2);border-radius:10px;padding:14px 16px;">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#2a6e1e;margin-bottom:6px;">Liquid portfolio at 65</div>
-          <div style="font-family:'DM Serif Display',serif;font-size:1.6rem;color:#2a6e1e;">${fmt(liqReal)}</div>
-          <div style="font-size:11px;color:#6a9e6a;margin-top:4px;">in today's dollars</div>
+    <!-- ① MONTHLY EXPENSES AT 65 -->
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:baseline;">
+        <div>
+          <span style="font-size:14px;font-weight:600;color:#0d0d0b;">① Monthly Expenses at 65</span>
+          <span style="font-size:11px;color:#888;margin-left:8px;">edit amounts — drives the entire plan</span>
         </div>
-        <div style="background:#eef4fa;border:1px solid rgba(26,82,128,0.2);border-radius:10px;padding:14px 16px;">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#1a5280;margin-bottom:6px;">Portfolio needed (4% rule)</div>
-          <div style="font-family:'DM Serif Display',serif;font-size:1.6rem;color:#1a5280;">${fmt(needed4pct)}</div>
-          <div style="font-size:11px;color:#6a82ae;margin-top:4px;">to fund $${Math.round(fromPort/12).toLocaleString()}/mo from portfolio</div>
+      </div>
+      <div style="margin:0 16px 16px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;background:#fafaf8;padding:8px 14px;border-bottom:1px solid rgba(0,0,0,0.08);">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;">Category</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;text-align:center;">Note</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#1a5280;text-align:right;">Monthly</span>
         </div>
-        <div style="background:${surplus>0?'#f0f7ee':'#fff8f8'};border:1px solid ${surplus>0?'rgba(42,110,30,0.2)':'rgba(160,32,32,0.2)'};border-radius:10px;padding:14px 16px;">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:${surplus>0?'#2a6e1e':'#a02020'};margin-bottom:6px;">${surplus>0?'Surplus':'Shortfall'}</div>
-          <div style="font-family:'DM Serif Display',serif;font-size:1.6rem;color:${surplus>0?'#2a6e1e':'#a02020'};">${fmt(Math.abs(surplus))}</div>
-          <div style="font-size:11px;color:${surplus>0?'#6a9e6a':'#c06060'};margin-top:4px;">${surplus>0?'✓ On track':'↑ Increase contributions'}</div>
+        ${(window.retExpenses || (window.retExpenses = [
+          { cat:"Housing",                       note:"prop tax, utilities, insurance",   amt:1200 },
+          { cat:"Food & Groceries",              note:"2 people, no kids",                amt:800  },
+          { cat:"Auto",                          note:"insurance + gas, less driving",    amt:500  },
+          { cat:"Health & Medical",              note:"prescriptions, dental, vision",    amt:300  },
+          { cat:"Travel & Leisure",              note:"trips, dining out, hobbies",       amt:800  },
+          { cat:"Subscriptions & Entertainment", note:"streaming, memberships",           amt:200  },
+          { cat:"Personal Care",                 note:"grooming, clothing",               amt:200  },
+          { cat:"Gifts & Family",                note:"kids, grandkids, occasions",       amt:300  },
+        ])).map((row, idx) => `
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:8px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
+            onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+            <span style="font-size:13px;color:#333;">${row.cat}</span>
+            <span style="font-size:11px;color:#aaa;text-align:center;">${row.note}</span>
+            <div style="text-align:right;">
+              <input type="number" value="${row.amt}"
+                onchange="window.retExpenses[${idx}].amt=parseFloat(this.value)||0; renderRpSection();"
+                onfocus="this.select()"
+                style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;
+                       font-size:13px;font-weight:600;font-family:inherit;color:#1a5280;
+                       width:90px;text-align:right;outline:none;padding:4px 8px;">
+            </div>
+          </div>`).join('')}
+        <!-- Total + CPP/OAS breakdown -->
+        <div style="padding:10px 14px;background:#f4f3ef;border-top:1px solid rgba(0,0,0,0.1);">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total monthly expenses</span>
+            <span style="font-size:14px;font-weight:700;color:#0d0d0b;font-family:'DM Serif Display',serif;">${fmt(retTotal)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:12px;color:#2a6e1e;">CPP + OAS (guaranteed, indexed)</span>
+            <span style="font-size:12px;font-weight:600;color:#2a6e1e;">− $3,500</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:0.5px solid rgba(0,0,0,0.15);">
+            <span style="font-size:13px;font-weight:600;color:#1a5280;">Needed from your portfolio</span>
+            <span style="font-size:14px;font-weight:700;color:#1a5280;font-family:'DM Serif Display',serif;">${fmt(fromPort/12)}/mo</span>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- PORTFOLIO TABLE WITH EDITABLE CONTRIBUTIONS -->
+    <!-- ② PORTFOLIO AT 65 -->
     <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
       <div style="padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:baseline;">
-        <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Portfolio at 65</span>
-        <span style="font-size:11px;color:#1a5280;font-weight:500;">✎ Edit monthly contributions below</span>
+        <div>
+          <span style="font-size:14px;font-weight:600;color:#0d0d0b;">② Portfolio at 65</span>
+          <span style="font-size:11px;color:#1a5280;font-weight:500;margin-left:8px;">✎ Edit monthly contributions</span>
+        </div>
       </div>
       <div style="margin:0 16px 16px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;background:#fafaf8;padding:8px 12px;border-bottom:1px solid rgba(0,0,0,0.08);">
@@ -1056,99 +1092,95 @@ function renderRpSection() {
       </div>
     </div>
 
-    <!-- CPP + OAS -->
-    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
-      <div style="padding:14px 16px 6px;display:flex;align-items:center;gap:8px;">
-        <span style="font-size:13px;font-weight:600;color:#0d0d0b;">CPP + OAS</span>
-        <span style="font-size:11px;color:#2a6e1e;font-weight:500;">● Both fully indexed to inflation</span>
-      </div>
-      <div style="margin:0 16px 16px;background:#f8fff8;border:1px solid rgba(42,110,30,0.12);border-radius:8px;overflow:hidden;">
-        ${[["CPP — Manny","$1,200/mo"],["CPP — Rani","$900/mo"],["OAS — Manny","$700/mo"],["OAS — Rani","$700/mo"]]
-          .map(([n,v]) => `<div style="display:flex;justify-content:space-between;padding:7px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);">
-            <span style="font-size:13px;color:#333;">${n}</span>
-            <span style="font-size:12px;color:#2a6e1e;font-weight:500;">${v} today · same real value always</span>
-          </div>`).join('')}
-        <div style="display:flex;justify-content:space-between;padding:9px 14px;background:rgba(42,110,30,0.06);border-top:1px solid rgba(42,110,30,0.1);">
-          <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total govt income</span>
-          <span style="font-size:14px;font-weight:700;color:#2a6e1e;">$3,500/mo · inflation indexed forever</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- INCOME SUMMARY -->
+    <!-- ③ RETIREMENT READINESS -->
     <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
       <div style="padding:14px 16px 6px;">
-        <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Monthly Income at 65</span>
-        <span style="font-size:11px;color:#888;margin-left:8px;">in today's dollars · edit target to update plan</span>
+        <span style="font-size:14px;font-weight:600;color:#0d0d0b;">③ Retirement Readiness</span>
+        <span style="font-size:11px;color:#888;margin-left:8px;">auto-calculated from ① and ②</span>
       </div>
-      <div style="margin:0 16px 16px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:0.5px solid rgba(0,0,0,0.06);"
-          onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
-          <span style="font-size:13px;color:#333;">Target monthly spend</span>
-          <input type="number" value="${target}"
-            onchange="window.rpContrib.target=parseFloat(this.value)||6500; renderRpSection();"
-            onfocus="this.select()"
-            style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;
-                   font-size:13px;font-weight:600;font-family:inherit;color:#1a5280;
-                   width:100px;text-align:right;outline:none;padding:4px 8px;">
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:0.5px solid rgba(0,0,0,0.06);">
-          <span style="font-size:13px;color:#2a6e1e;">CPP + OAS (guaranteed, indexed)</span>
-          <span style="font-size:13px;font-weight:600;color:#2a6e1e;">− $3,500/mo</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:0.5px solid rgba(0,0,0,0.06);">
-          <span style="font-size:13px;font-weight:600;">Needed from portfolio</span>
-          <span style="font-size:13px;font-weight:700;color:#1a5280;">${Math.round(fromPort/12).toLocaleString("en-CA")}/mo</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f8f7f4;">
-          <span style="font-size:13px;font-weight:600;">Portfolio needed (4% rule)</span>
-          <span style="font-size:13px;font-weight:700;color:#1a5280;">${fmt(needed4pct)}</span>
+      <div style="padding:0 16px 16px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+          <div style="background:#f0f7ee;border:1px solid rgba(42,110,30,0.2);border-radius:10px;padding:14px 16px;">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#2a6e1e;margin-bottom:6px;">Liquid portfolio at 65</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.6rem;color:#2a6e1e;">${fmt(liqReal)}</div>
+            <div style="font-size:11px;color:#6a9e6a;margin-top:4px;">in today's dollars</div>
+          </div>
+          <div style="background:#eef4fa;border:1px solid rgba(26,82,128,0.2);border-radius:10px;padding:14px 16px;">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#1a5280;margin-bottom:6px;">Portfolio needed (4% rule)</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.6rem;color:#1a5280;">${fmt(needed4pct)}</div>
+            <div style="font-size:11px;color:#6a82ae;margin-top:4px;">to fund ${fmt(Math.round(fromPort/12))}/mo from portfolio</div>
+          </div>
+          <div style="background:${surplus>0?'#f0f7ee':'#fff8f8'};border:1px solid ${surplus>0?'rgba(42,110,30,0.2)':'rgba(160,32,32,0.2)'};border-radius:10px;padding:14px 16px;">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:${surplus>0?'#2a6e1e':'#a02020'};margin-bottom:6px;">${surplus>0?'Surplus':'Shortfall'}</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.6rem;color:${surplus>0?'#2a6e1e':'#a02020'};">${fmt(Math.abs(surplus))}</div>
+            <div style="font-size:11px;color:${surplus>0?'#6a9e6a':'#c06060'};margin-top:4px;">${surplus>0?'✓ On track':'↑ Increase contributions'}</div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- RESP -->
+    <!-- ④ CPP + OAS -->
     <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
-      <div style="padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:baseline;">
-        <span style="font-size:13px;font-weight:600;color:#0d0d0b;">RESP — Education Fund</span>
-        <span style="font-size:11px;color:#888;">5% growth · 2.5% inflation · $30K/yr university cost today</span>
+      <div style="padding:14px 16px 6px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:14px;font-weight:600;color:#0d0d0b;">④ CPP + OAS</span>
+        <span style="font-size:11px;color:#2a6e1e;font-weight:500;">● Both fully indexed to inflation forever</span>
       </div>
-      <div style="margin:0 16px 16px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
+      <div style="margin:0 16px 16px;background:#f8fff8;border:1px solid rgba(42,110,30,0.12);border-radius:8px;overflow:hidden;">
+        ${[["CPP — Manny","$1,200/mo","Verify at My Service Canada Account"],
+           ["CPP — Rani","$900/mo","Verify at My Service Canada Account"],
+           ["OAS — Manny","$700/mo","Eligible at 65, no application needed"],
+           ["OAS — Rani","$700/mo","Eligible at 65, no application needed"]]
+          .map(([n,v,note]) => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);">
+            <div>
+              <span style="font-size:13px;color:#333;">${n}</span>
+              <span style="font-size:11px;color:#aaa;margin-left:8px;">${note}</span>
+            </div>
+            <span style="font-size:13px;font-weight:600;color:#2a6e1e;">${v}</span>
+          </div>`).join('')}
+        <div style="display:flex;justify-content:space-between;padding:10px 14px;background:rgba(42,110,30,0.06);border-top:1px solid rgba(42,110,30,0.1);">
+          <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total government income</span>
+          <span style="font-size:14px;font-weight:700;color:#2a6e1e;font-family:'DM Serif Display',serif;">$3,500/mo · same real value always</span>
+        </div>
+      </div>
+    </div>
 
-        <!-- Header -->
+    <!-- ⑤ RESP EDUCATION -->
+    <div>
+      <div style="padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:baseline;">
+        <span style="font-size:14px;font-weight:600;color:#0d0d0b;">⑤ RESP — Education Fund</span>
+        <span style="font-size:11px;color:#888;">5% growth · 2.5% inflation · $30K/yr today</span>
+      </div>
+      <div style="margin:0 16px 20px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
         <div style="display:grid;grid-template-columns:2fr 1fr;background:#fafaf8;padding:8px 14px;border-bottom:1px solid rgba(0,0,0,0.08);">
           <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;">Item</span>
           <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#1a5280;text-align:right;">Amount</span>
         </div>
-
-        <!-- Starting & contributions -->
         ${[
-          ["RESP balance today",                fmt(respNow),  ""],
-          ["Monthly contribution",              "",             "resp"],
-          ["Annual CESG (govt 20% match)",      "$1,000/yr",   "on $2,500/child — 2 kids"],
-          ["Total going in annually",           fmt(respAnnual), "contributions + CESG"],
+          ["RESP balance today",            fmt(respNow),          ""],
+          ["Monthly contribution",          "",                     "resp"],
+          ["Annual CESG (govt 20% match)",  "$1,000/yr",           "on $2,500/child — 2 kids"],
+          ["Total going in annually",       fmt(respAnnual),       "contributions + CESG"],
         ].map(([label, val, note]) => `
           <div style="display:grid;grid-template-columns:2fr 1fr;padding:7px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
             onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
             <div>
               <span style="font-size:13px;color:#333;">${label}</span>
-              ${note ? `<span style="font-size:11px;color:#aaa;margin-left:6px;">${note}</span>` : ''}
+              ${note && note !== "resp" ? `<span style="font-size:11px;color:#aaa;margin-left:6px;">${note}</span>` : ''}
             </div>
             ${val === "" && note === "resp"
               ? `<div style="text-align:right;">${inp('resp', contrib.resp)}</div>`
               : `<span style="font-size:13px;font-weight:600;color:#1a5280;text-align:right;">${val}</span>`
             }
           </div>`).join('')}
-
-        <!-- Noor section -->
         <div style="padding:8px 14px;background:rgba(26,82,128,0.04);border-top:1px solid rgba(0,0,0,0.06);border-bottom:0.5px solid rgba(0,0,0,0.05);">
           <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#1a5280;">Noor — University 2038–2042</span>
         </div>
         ${[
-          ["RESP at Noor's start (2038)",       fmt(respNoor),  "12 years of growth"],
-          ["Annual university cost (2038$)",    fmt(Math.round(cn/4)), "tuition + living · $30K today inflated"],
-          ["Total 4-year cost (2038–2042)",     fmt(cn),        "inflated at 2.5%/yr"],
-          ["RESP remaining after Noor",         fmt(rem),       "available for Veer"],
+          ["RESP at Noor's start (2038)",      fmt(respNoor),              "12 years of growth"],
+          ["Annual cost (2038 dollars)",       fmt(Math.round(cn/4)),      "$30K/yr today inflated at 2.5%"],
+          ["Total 4-year cost",                fmt(cn),                    "2038–2042"],
+          ["Remaining after Noor",             fmt(rem),                   "available for Veer"],
         ].map(([label, val, note]) => `
           <div style="display:grid;grid-template-columns:2fr 1fr;padding:7px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
             onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
@@ -1158,15 +1190,13 @@ function renderRpSection() {
             </div>
             <span style="font-size:13px;font-weight:600;color:#1a5280;text-align:right;">${val}</span>
           </div>`).join('')}
-
-        <!-- Veer section -->
         <div style="padding:8px 14px;background:rgba(106,158,106,0.08);border-top:1px solid rgba(0,0,0,0.06);border-bottom:0.5px solid rgba(0,0,0,0.05);">
           <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#2a6e1e;">Veer — University 2040–2044</span>
         </div>
         ${[
-          ["RESP at Veer's start (2040)",       fmt(respVeer),  "remaining + 2 more yrs of contributions"],
-          ["Annual university cost (2040$)",    fmt(Math.round(cv/4)), "tuition + living · $30K today inflated"],
-          ["Total 4-year cost (2040–2044)",     fmt(cv),        "inflated at 2.5%/yr"],
+          ["RESP at Veer's start (2040)",      fmt(respVeer),              "remaining + 2 more yrs contributions"],
+          ["Annual cost (2040 dollars)",       fmt(Math.round(cv/4)),      "$30K/yr today inflated at 2.5%"],
+          ["Total 4-year cost",                fmt(cv),                    "2040–2044"],
         ].map(([label, val, note]) => `
           <div style="display:grid;grid-template-columns:2fr 1fr;padding:7px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
             onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
@@ -1176,78 +1206,17 @@ function renderRpSection() {
             </div>
             <span style="font-size:13px;font-weight:600;color:#1a5280;text-align:right;">${val}</span>
           </div>`).join('')}
-
-        <!-- Gap / status -->
         <div style="padding:12px 14px;background:${veerGap>0?'#fff8f8':'#f0f7ee'};border-top:1px solid rgba(0,0,0,0.08);">
           ${veerGap>0
             ? `<div style="display:flex;justify-content:space-between;align-items:center;">
                 <div>
                   <div style="font-size:13px;font-weight:600;color:#a02020;">Veer funding gap: ${fmt(veerGap)}</div>
-                  <div style="font-size:11px;color:#c06060;margin-top:2px;">Add $${topUp}/mo to RESP now to fully close · or fund from cash flow at the time (you'll be 54, peak earning)</div>
+                  <div style="font-size:11px;color:#c06060;margin-top:2px;">Add $${topUp}/mo to RESP now to close · or fund from cash flow (you'll be 54, peak earning in 2040)</div>
                 </div>
                 <span style="font-size:20px;">⚠️</span>
                </div>`
             : `<div style="font-size:13px;font-weight:600;color:#2a6e1e;">✓ Both kids fully funded for university</div>`
           }
-        </div>
-      </div>
-    </div>
-
-    <!-- RETIREMENT MONTHLY EXPENSES -->
-    <div>
-      <div style="padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:baseline;">
-        <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Estimated Monthly Expenses at 65</span>
-        <span style="font-size:11px;color:#888;">in today's dollars · edit to customize</span>
-      </div>
-      <div style="margin:0 16px 20px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;background:#fafaf8;padding:8px 14px;border-bottom:1px solid rgba(0,0,0,0.08);">
-          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;">Category</span>
-          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;text-align:center;">Note</span>
-          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#1a5280;text-align:right;">Monthly</span>
-        </div>
-        ${(window.retExpenses || (window.retExpenses = [
-          { cat:"Housing",                  note:"prop tax, utilities, ins.",    amt:1200 },
-          { cat:"Food & Groceries",         note:"2 people, no kids",            amt:800  },
-          { cat:"Auto",                     note:"insurance + gas, less driving",amt:500  },
-          { cat:"Health & Medical",         note:"prescriptions, dental, vision",amt:300  },
-          { cat:"Travel & Leisure",         note:"trips, dining out, hobbies",   amt:800  },
-          { cat:"Subscriptions & Entertainment", note:"streaming, memberships",  amt:200  },
-          { cat:"Personal Care",            note:"grooming, clothing",           amt:200  },
-          { cat:"Gifts & Family",           note:"kids, grandkids, occasions",   amt:300  },
-        ])).map((row, idx) => `
-          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:8px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
-            onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
-            <span style="font-size:13px;color:#333;">${row.cat}</span>
-            <span style="font-size:11px;color:#aaa;text-align:center;">${row.note}</span>
-            <div style="text-align:right;">
-              <input type="number" value="${row.amt}"
-                onchange="window.retExpenses[${idx}].amt=parseFloat(this.value)||0; renderRpSection();"
-                onfocus="this.select()"
-                style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;
-                       font-size:13px;font-weight:600;font-family:inherit;color:#1a5280;
-                       width:90px;text-align:right;outline:none;padding:4px 8px;">
-            </div>
-          </div>`).join('')}
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:10px 14px;background:#f4f3ef;border-top:1px solid rgba(0,0,0,0.1);">
-          <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total monthly</span>
-          <span></span>
-          <span style="font-size:14px;font-weight:700;color:#1a5280;text-align:right;font-family:'DM Serif Display',serif;">
-            ${fmt((window.retExpenses||[]).reduce((s,r)=>s+(parseFloat(r.amt)||0),0))}
-          </span>
-        </div>
-        <div style="padding:10px 14px;background:#eef4fa;border-top:0.5px solid rgba(26,82,128,0.1);">
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-            <span style="font-size:12px;color:#555;">Your estimated total</span>
-            <span style="font-size:12px;font-weight:600;color:#1a5280;">${fmt((window.retExpenses||[]).reduce((s,r)=>s+(parseFloat(r.amt)||0),0))}/mo</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-            <span style="font-size:12px;color:#2a6e1e;">CPP + OAS covers</span>
-            <span style="font-size:12px;font-weight:600;color:#2a6e1e;">$3,500/mo</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:0.5px solid rgba(0,0,0,0.1);">
-            <span style="font-size:12px;font-weight:600;color:#0d0d0b;">From your portfolio</span>
-            <span style="font-size:13px;font-weight:700;color:#1a5280;">${fmt(Math.max(0,(window.retExpenses||[]).reduce((s,r)=>s+(parseFloat(r.amt)||0),0)-3500))}/mo</span>
-          </div>
         </div>
       </div>
     </div>
