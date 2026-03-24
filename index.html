@@ -493,15 +493,14 @@ window.addEventListener('DOMContentLoaded', function() {
   try { render(); } catch(e) { console.error("render failed:", e); }
   try { fetchUSD(); } catch(e) {}
   setTimeout(function() {
-    try { injectFsPanel(); } catch(e) { console.error("injectFsPanel failed:", e); }
-    setTimeout(function(){ try { injectRpPanel(); } catch(e){ console.error("injectRpPanel failed:",e); } }, 300);
+    try { injectPrivatePanel(); } catch(e) { console.error("injectPrivatePanel failed:", e); }
   }, 200);
 
   // Load Firebase data in background, then re-render and re-inject
   try {
     loadData().then(function() {
       try { render(); } catch(e) {}
-      setTimeout(function() { try { injectFsPanel(); } catch(e) {} setTimeout(function(){ try { injectRpPanel(); } catch(e){} }, 100); }, 100);
+      setTimeout(function() { try { injectPrivatePanel(); } catch(e) {} }, 100);
     }).catch(function(e) { console.warn("Firebase:", e); });
   } catch(e) { console.warn("Firebase init failed:", e); }
 });
