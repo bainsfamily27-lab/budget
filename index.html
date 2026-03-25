@@ -614,6 +614,26 @@ const FS_DEFAULTS = {
 };
 
 let fsData = JSON.parse(JSON.stringify(FS_DEFAULTS));
+
+// ── EXTRACT RETIREMENT BALANCES FROM FINANCIAL SUMMARY ───
+function getRpBalances() {
+  const ret = fsData.investments.retirement.items;
+  const others = fsData.investments.others.items;
+  const getAmt = (items, nameParts) => {
+    const item = items.find(i => nameParts.some(p => i.name.toUpperCase().includes(p.toUpperCase())));
+    return item ? (parseFloat(item.amount)||0) : 0;
+  };
+  const rrsp  = getAmt(ret, ['RRSP','RSP']);
+  const tfsa  = getAmt(ret, ['TFSA']);
+  const rpp   = getAmt(ret, ['RPP']);
+  const btc   = getAmt(ret, ['BTC']);
+  const india = getAmt(others, ['India']);
+  // Woodstock from real estate
+  const wood  = fsData.real_estate.woodstock ? fsData.real_estate.woodstock.value : 216667;
+  // RESP from kids
+  const resp  = fsData.investments.kids.items[0] ? (parseFloat(fsData.investments.kids.items[0].amount)||0) : 39837;
+  return { rrsp, tfsa, rpp, btc, india, wood, resp };
+}
 let fsUnlocked = false;
 let fsEditMode = false;
 let fsSaveTimer = null;
@@ -915,12 +935,12 @@ window.toggleFsEdit = () => { fsEditMode = !fsEditMode; renderFsSection(); };
 window.updateFsInv = (catKey, idx, field, val) => {
   if (field === "amount") fsData.investments[catKey].items[idx].amount = parseFloat(val)||0;
   else fsData.investments[catKey].items[idx].name = val.trim() || fsData.investments[catKey].items[idx].name;
-  saveFsData(); renderFsSection();
+  saveFsData(); renderFsSection(); if(typeof updateRetTotals==='function') updateRetTotals();
 };
 
 window.updateFsRe = (key, field, val) => {
   fsData.real_estate[key][field] = parseFloat(val)||0;
-  saveFsData(); renderFsSection();
+  saveFsData(); renderFsSection(); if(typeof updateRetTotals==='function') updateRetTotals();
 };
 
 window.updateFsLib = (idx, field, val) => {
@@ -932,7 +952,7 @@ window.updateFsLib = (idx, field, val) => {
   } else {
     fsData.liabilities.mortgages.items[idx].name = val.trim() || fsData.liabilities.mortgages.items[idx].name;
   }
-  saveFsData(); renderFsSection();
+  saveFsData(); renderFsSection(); if(typeof updateRetTotals==='function') updateRetTotals();
 };
 
 window.addFsInvItem = (catKey) => {
@@ -959,18 +979,27 @@ function renderRpSection() {
   const contrib = window.rpContrib || { rrsp:1250, tfsa:1208, rpp:500, resp:580 };
   window.rpContrib = contrib;
 
-  const rrsp65  = fv(70252,  contrib.rrsp*12, r, yrs);
-  const tfsa65  = fv(6735,   contrib.tfsa*12, r, yrs);
-  const rpp65   = fv(25979,  contrib.rpp*12,  r, yrs);
-  const btc65   = 12000  * Math.pow(1+btcR, yrs);
-  const india65 = 300000 * Math.pow(1+re, yrs);
-  const wood65  = (650000/3) * Math.pow(1+re, yrs);
+  const bal = getRpBalances();
+  const rrspNow = bal.rrsp || 70252;
+  const tfsaNow = bal.tfsa || 6735;
+  const rppNow  = bal.rpp  || 25979;
+  const btcNow  = bal.btc  || 12000;
+  const indiaNow= bal.india|| 300000;
+  const woodNow = bal.wood || 216667;
+  const respNowVal = bal.resp || 39837;
+
+  const rrsp65  = fv(rrspNow, contrib.rrsp*12, r, yrs);
+  const tfsa65  = fv(tfsaNow, contrib.tfsa*12, r, yrs);
+  const rpp65   = fv(rppNow,  contrib.rpp*12,  r, yrs);
+  const btc65   = btcNow   * Math.pow(1+btcR, yrs);
+  const india65 = indiaNow * Math.pow(1+re, yrs);
+  const wood65  = woodNow  * Math.pow(1+re, yrs);
   const prim65  = 1200000 * Math.pow(1+re, yrs);
   const liquid  = rrsp65+tfsa65+rpp65+btc65+india65+wood65;
   const liqReal = liquid/defl;
   const primReal= prim65/defl;
 
-  const respNow=39837, nyr=12, vyr=14;
+  const respNow= respNowVal, nyr=12, vyr=14;
   const cesg=1000, respAnnual=contrib.resp*12+cesg;
   const respNoor = fv(respNow, respAnnual, r, nyr);
   const cn = 120000*Math.pow(1+inf,nyr);
@@ -1036,14 +1065,14 @@ function renderRpSection() {
             <span style="font-size:13px;color:#333;">${row.cat}</span>
             <span style="font-size:11px;color:#aaa;text-align:center;">${row.note}</span>
             <div style="text-align:right;"><input type="number" value="${row.amt}"
-              onchange="if(window.retExpenses && window.retExpenses[${idx}]) { window.retExpenses[${idx}].amt=parseFloat(this.value)||0; } renderRpSection(); saveRpData();"
+              onchange="if(window.retExpenses && window.retExpenses[${idx}]) { window.retExpenses[${idx}].amt=parseFloat(this.value)||0; } updateRetTotals(); saveRpData();"
               onfocus="this.select()"
               style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;"></div>
           </div>`).join('')}
         <div style="padding:10px 14px;background:#f4f3ef;border-top:1px solid rgba(0,0,0,0.1);">
           <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
             <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total monthly expenses</span>
-            <span style="font-size:14px;font-weight:700;color:#0d0d0b;font-family:'DM Serif Display',serif;">${fmt(retTotal)}</span>
+            <span id="ret-total-display" style="font-size:14px;font-weight:700;color:#0d0d0b;font-family:'DM Serif Display',serif;">${fmt(retTotal)}/mo</span>
           </div>
           <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
             <span style="font-size:12px;color:#2a6e1e;">CPP + OAS (guaranteed, indexed)</span>
@@ -1051,7 +1080,7 @@ function renderRpSection() {
           </div>
           <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:0.5px solid rgba(0,0,0,0.15);">
             <span style="font-size:13px;font-weight:600;color:#1a5280;">Needed from your portfolio</span>
-            <span style="font-size:14px;font-weight:700;color:#1a5280;font-family:'DM Serif Display',serif;">${fmt(fromPort/12)}/mo</span>
+            <span id="ret-fromport-display" style="font-size:14px;font-weight:700;color:#1a5280;font-family:'DM Serif Display',serif;">${fmt(fromPort/12)}/mo</span>
           </div>
         </div>
       </div>
@@ -1110,7 +1139,7 @@ function renderRpSection() {
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:8px;">Step 1 — Monthly Income Needed</div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
             <span style="font-size:13px;color:#333;">Your retirement expenses (from ①)</span>
-            <span style="font-size:13px;font-weight:600;color:#0d0d0b;">${fmt(retTotal)}/mo</span>
+            <span style="font-size:13px;font-weight:600;color:#0d0d0b;" id="s1-total">${fmt(retTotal)}/mo</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
             <span style="font-size:13px;color:#2a6e1e;">CPP + OAS (guaranteed, indexed)</span>
@@ -1118,7 +1147,7 @@ function renderRpSection() {
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid rgba(0,0,0,0.08);">
             <span style="font-size:13px;font-weight:600;color:#1a5280;">Gap to fill from portfolio</span>
-            <span style="font-size:14px;font-weight:700;color:#1a5280;">${fmt(Math.max(0,fromPort/12))}/mo = ${fmt(Math.max(0,fromPort))}/yr</span>
+            <span style="font-size:14px;font-weight:700;color:#1a5280;" id="s1-fromport">${fmt(Math.max(0,fromPort/12))}/mo = ${fmt(Math.max(0,fromPort))}/yr</span>
           </div>
         </div>
 
@@ -1127,11 +1156,11 @@ function renderRpSection() {
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:8px;">Step 2 — Portfolio Required (4% Rule)</div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
             <span style="font-size:13px;color:#333;">Annual gap ÷ 4%</span>
-            <span style="font-size:12px;color:#888;">${fmt(Math.max(0,fromPort))} ÷ 0.04</span>
+            <span style="font-size:12px;color:#888;" id="s2-calc">${fmt(Math.max(0,fromPort))} ÷ 0.04</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid rgba(0,0,0,0.08);">
             <span style="font-size:13px;font-weight:600;color:#1a5280;">Portfolio needed at 65</span>
-            <span style="font-size:14px;font-weight:700;color:#1a5280;">${fmt(needed4pct)}</span>
+            <span id="s2-needed" style="font-size:14px;font-weight:700;color:#1a5280;">${fmt(needed4pct)}</span>
           </div>
           <div style="font-size:11px;color:#aaa;margin-top:4px;">4% rule = safe withdrawal rate — portfolio should last 30+ years</div>
         </div>
@@ -1162,15 +1191,15 @@ function renderRpSection() {
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:${surplus>0?'#2a6e1e':'#a02020'};margin-bottom:8px;">Step 4 — The Verdict</div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
             <span style="font-size:13px;color:#555;">Portfolio you'll have</span>
-            <span style="font-size:13px;font-weight:600;color:#2a6e1e;">${fmt(liqReal)}</span>
+            <span id="s4-have" style="font-size:13px;font-weight:600;color:#2a6e1e;">${fmt(liqReal)}</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <span style="font-size:13px;color:#555;">Portfolio you need</span>
-            <span style="font-size:13px;font-weight:600;color:#1a5280;">− ${fmt(needed4pct)}</span>
+            <span id="s4-need" style="font-size:13px;font-weight:600;color:#1a5280;">− ${fmt(needed4pct)}</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid ${surplus>0?'rgba(42,110,30,0.15)':'rgba(160,32,32,0.15)'};">
             <span style="font-size:14px;font-weight:700;color:${surplus>0?'#2a6e1e':'#a02020'};">${surplus>0?'✓ Surplus — On Track':'✗ Shortfall'}</span>
-            <span style="font-family:'DM Serif Display',serif;font-size:1.5rem;color:${surplus>0?'#2a6e1e':'#a02020'};">${fmt(Math.abs(surplus))}</span>
+            <span id="card-surplus-val" style="font-family:'DM Serif Display',serif;font-size:1.5rem;color:${surplus>0?'#2a6e1e':'#a02020'};">${fmt(Math.abs(surplus))}</span>
           </div>
           <div style="font-size:11px;color:${surplus>0?'#6a9e6a':'#c06060'};margin-top:6px;">
             ${surplus>0
@@ -1265,6 +1294,82 @@ function renderRpSection() {
       </div>
     </div>
   `;
+}
+
+// Update retirement totals without full re-render (preserves input focus)
+function updateRetTotals() {
+  if (!window.retExpenses) return;
+  const govtMo = 3500;
+  const inf=0.025, r=0.05, re=0.025, btcR=0.08, yrs=25;
+  const defl = Math.pow(1+inf, yrs);
+  const fv = (pv,c,rate,n) => pv*Math.pow(1+rate,n) + c*(Math.pow(1+rate,n)-1)/rate;
+  const fmt = n => "$" + Math.round(n).toLocaleString("en-CA");
+  const contrib = window.rpContrib || { rrsp:1250, tfsa:1208, rpp:500, resp:580 };
+
+  const retTotal = window.retExpenses.reduce((s,r)=>s+(parseFloat(r.amt)||0),0) || 4482;
+  const fromPort = Math.max(0, retTotal-govtMo)*12;
+  const needed4pct = fromPort/0.04;
+
+  const bal2 = getRpBalances();
+  const rrsp65 = fv(bal2.rrsp||70252, contrib.rrsp*12, r, yrs);
+  const tfsa65 = fv(bal2.tfsa||6735,  contrib.tfsa*12, r, yrs);
+  const rpp65  = fv(bal2.rpp||25979,  contrib.rpp*12,  r, yrs);
+  const btc65  = (bal2.btc||12000)  * Math.pow(1+btcR, yrs);
+  const india65 = (bal2.india||300000) * Math.pow(1+re, yrs);
+  const wood65  = (bal2.wood||216667)  * Math.pow(1+re, yrs);
+  const liquid  = rrsp65+tfsa65+rpp65+btc65+india65+wood65;
+  const liqReal = liquid/defl;
+  const surplus = liqReal - needed4pct;
+
+  // Update expense summary footer
+  const setEl = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+  setEl('ret-total-display',    fmt(retTotal) + '/mo');
+  setEl('ret-fromport-display', fmt(Math.max(0,fromPort/12)) + '/mo = ' + fmt(Math.max(0,fromPort)) + '/yr');
+
+  // Step 1
+  setEl('s1-total',    fmt(retTotal) + '/mo');
+  setEl('s1-fromport', fmt(Math.max(0,fromPort/12)) + '/mo = ' + fmt(Math.max(0,fromPort)) + '/yr');
+
+  // Step 2
+  setEl('s2-calc',    fmt(Math.max(0,fromPort)) + ' ÷ 0.04');
+  setEl('s2-needed',  fmt(needed4pct));
+
+  // Step 3 (portfolio doesn't change with expenses — but keep consistent)
+  setEl('s3-total',   fmt(liqReal));
+
+  // Step 4
+  setEl('s4-have',    fmt(liqReal));
+  setEl('s4-need',    '− ' + fmt(needed4pct));
+  const s4verdict = document.getElementById('s4-verdict');
+  if (s4verdict) {
+    s4verdict.textContent = (surplus>0 ? '✓ Surplus — On Track' : '✗ Shortfall');
+    s4verdict.style.color = surplus>0 ? '#2a6e1e' : '#a02020';
+  }
+  setEl('s4-surplus', fmt(Math.abs(surplus)));
+  const s4pct = document.getElementById('s4-pct');
+  if (s4pct) {
+    s4pct.textContent = surplus>0
+      ? 'Your portfolio covers ' + ((liqReal/needed4pct)*100).toFixed(0) + '% of what you need — ' + fmt(surplus) + ' buffer in today\'s dollars'
+      : 'Increase contributions or reduce retirement expenses by ' + fmt(Math.abs(surplus/25/12)) + '/mo';
+    s4pct.style.color = surplus>0 ? '#6a9e6a' : '#c06060';
+  }
+
+  // Update portfolio needed card
+  setEl('card-needed', fmt(needed4pct));
+  setEl('card-needed-sub', 'to fund ' + fmt(Math.round(fromPort/12)) + '/mo from portfolio');
+
+  // Update surplus card
+  const sc = document.getElementById('card-surplus-container');
+  if (sc) {
+    sc.style.background = surplus>0 ? '#f0f7ee' : '#fff8f8';
+    sc.style.borderColor = surplus>0 ? 'rgba(42,110,30,0.2)' : 'rgba(160,32,32,0.2)';
+  }
+  const sl = document.getElementById('card-surplus-label');
+  if (sl) { sl.textContent = surplus>0 ? 'Surplus' : 'Shortfall'; sl.style.color = surplus>0?'#2a6e1e':'#a02020'; }
+  const sv = document.getElementById('card-surplus-val');
+  if (sv) { sv.textContent = fmt(Math.abs(surplus)); sv.style.color = surplus>0?'#2a6e1e':'#a02020'; }
+  const ss = document.getElementById('card-surplus-sub');
+  if (ss) { ss.textContent = surplus>0 ? '✓ On track' : '↑ Increase contributions'; ss.style.color = surplus>0?'#6a9e6a':'#c06060'; }
 }
 
 window.lockRp = () => { rpUnlocked = false; renderRpSection(); };
