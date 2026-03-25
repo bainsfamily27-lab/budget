@@ -434,9 +434,30 @@ function buildChart() {
 }
 
 // --- Actions ---
+let budgetEditUnlocked = false;
+
 window.toggleEdit = () => {
-  editMode = !editMode;
-  render();
+  if (!editMode) {
+    // Turning ON edit mode — require password
+    if (budgetEditUnlocked) {
+      editMode = true;
+      render();
+    } else {
+      const pwd = prompt("Enter password to edit:");
+      if (pwd === "ajax123") {
+        budgetEditUnlocked = true;
+        editMode = true;
+        render();
+      } else if (pwd !== null) {
+        alert("Incorrect password");
+      }
+    }
+  } else {
+    // Turning OFF edit mode — no password needed
+    editMode = false;
+    budgetEditUnlocked = false;
+    render();
+  }
 };
 
 window.toggleSection = (key) => {
@@ -1001,7 +1022,7 @@ function renderRpSection() {
           <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#1a5280;text-align:right;">Monthly</span>
         </div>
         ${(window.retExpenses||(window.retExpenses=[
-          {cat:"Housing",                       note:"prop tax $982 + utilities $250 + insurance $150", amt:1382},
+          {cat:"Housing",                       note:"prop. tax + utilities + insurance", amt:1382},
           {cat:"Food & Groceries",              note:"2 people, no kids",                               amt:800 },
           {cat:"Auto",                          note:"insurance + gas, less driving",                   amt:500 },
           {cat:"Health & Medical",              note:"prescriptions, dental, vision",                   amt:300 },
