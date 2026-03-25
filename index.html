@@ -1458,25 +1458,13 @@ function renderPrivateTabContent() {
   if (!el) return;
 
   if (privateTab === 'summary') {
-    // Temporarily use fs-container trick — render FS into a div
-    el.innerHTML = '<div id="fs-container-inner"></div>';
-    const inner = document.getElementById("fs-container-inner");
-    if (inner) {
-      // Borrow renderFsSection logic but target inner
-      const oldContainer = document.getElementById("fs-container");
-      // Patch: temporarily point fs-container to our inner div
-      inner.id = "fs-container";
-      renderFsSection();
-      inner.id = "fs-container-inner";
-    }
+    // Keep id as "fs-container" so subsequent renderFsSection() calls work
+    el.innerHTML = '<div id="fs-container"></div>';
+    renderFsSection();
   } else {
-    el.innerHTML = '<div id="rp-container-inner"></div>';
-    const inner = document.getElementById("rp-container-inner");
-    if (inner) {
-      inner.id = "rp-container";
-      renderRpSection();
-      inner.id = "rp-container-inner";
-    }
+    // Keep id as "rp-container" so subsequent renderRpSection() calls work
+    el.innerHTML = '<div id="rp-container"></div>';
+    renderRpSection();
   }
 }
 
@@ -1521,9 +1509,19 @@ window.lockPrivate = () => {
   renderPrivatePanel();
 };
 
-// Keep old functions working (called inside renderFsSection / renderRpSection)
-window.lockFs = window.lockPrivate;
-window.lockRp = window.lockPrivate;
+// Lock functions — FS lock only hides FS, full lock via lockPrivate
+window.lockFs = () => {
+  fsUnlocked = false;
+  fsEditMode = false;
+  // Re-render FS section to show lock screen
+  const container = document.getElementById("fs-container");
+  if (container) renderFsSection();
+};
+window.lockRp = () => {
+  rpUnlocked = false;
+  const container = document.getElementById("rp-container");
+  if (container) renderRpSection();
+};
 
 // Redirect old inject functions to new combined one
 function injectFsPanel() { injectPrivatePanel(); }
