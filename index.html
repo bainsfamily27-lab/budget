@@ -615,6 +615,17 @@ const FS_DEFAULTS = {
 
 let fsData = JSON.parse(JSON.stringify(FS_DEFAULTS));
 
+// ── REFRESH RETIREMENT IF VISIBLE ────────────────────────
+function refreshRetirementIfVisible() {
+  // If retirement tab is currently showing, fully re-render it
+  if (privateUnlocked && privateTab === 'retirement') {
+    const c = document.getElementById("rp-container");
+    if (c) renderRpSection();
+  } else if (typeof updateRetTotals === 'function') {
+    updateRetTotals();
+  }
+}
+
 // ── EXTRACT RETIREMENT BALANCES FROM FINANCIAL SUMMARY ───
 function getRpBalances() {
   const ret = fsData.investments.retirement.items;
@@ -935,12 +946,12 @@ window.toggleFsEdit = () => { fsEditMode = !fsEditMode; renderFsSection(); };
 window.updateFsInv = (catKey, idx, field, val) => {
   if (field === "amount") fsData.investments[catKey].items[idx].amount = parseFloat(val)||0;
   else fsData.investments[catKey].items[idx].name = val.trim() || fsData.investments[catKey].items[idx].name;
-  saveFsData(); renderFsSection(); if(typeof updateRetTotals==='function') updateRetTotals();
+  saveFsData(); renderFsSection(); refreshRetirementIfVisible();
 };
 
 window.updateFsRe = (key, field, val) => {
   fsData.real_estate[key][field] = parseFloat(val)||0;
-  saveFsData(); renderFsSection(); if(typeof updateRetTotals==='function') updateRetTotals();
+  saveFsData(); renderFsSection(); refreshRetirementIfVisible();
 };
 
 window.updateFsLib = (idx, field, val) => {
@@ -952,7 +963,7 @@ window.updateFsLib = (idx, field, val) => {
   } else {
     fsData.liabilities.mortgages.items[idx].name = val.trim() || fsData.liabilities.mortgages.items[idx].name;
   }
-  saveFsData(); renderFsSection(); if(typeof updateRetTotals==='function') updateRetTotals();
+  saveFsData(); renderFsSection(); refreshRetirementIfVisible();
 };
 
 window.addFsInvItem = (catKey) => {
