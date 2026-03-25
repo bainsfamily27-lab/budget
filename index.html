@@ -1032,12 +1032,12 @@ function renderRpSection() {
     style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;">`;
 
   const tableRows = [
-    { name:"RRSP (US equities)",    growth:"5% / 2.5% real", now:70252,  at65:rrsp65,  real:rrsp65/defl,  key:"rrsp", contrib:contrib.rrsp },
-    { name:"TFSA — XEQT",           growth:"5% / 2.5% real", now:6735,   at65:tfsa65,  real:tfsa65/defl,  key:"tfsa", contrib:contrib.tfsa },
-    { name:"RPP — Rani pension",    growth:"5% / 2.5% real", now:25979,  at65:rpp65,   real:rpp65/defl,   key:"rpp",  contrib:contrib.rpp  },
-    { name:"BTC (hold only)",       growth:"8% / 5.5% real", now:12000,  at65:btc65,   real:btc65/defl,   key:null,   contrib:null },
-    { name:"India property (sell)", growth:"2.5% / 0% real", now:300000, at65:india65, real:india65/defl, key:null,   contrib:null },
-    { name:"Woodstock 1/3 (sell)",  growth:"2.5% / 0% real", now:216667, at65:wood65,  real:wood65/defl,  key:null,   contrib:null },
+    { name:"RRSP (US equities)",    growth:"5% / 2.5% real", now:70252,  at65:rrsp65,  real:rrsp65/defl,  key:"rrsp", contrib:contrib.rrsp, id:"row-rrsp"   },
+    { name:"TFSA — XEQT",           growth:"5% / 2.5% real", now:6735,   at65:tfsa65,  real:tfsa65/defl,  key:"tfsa", contrib:contrib.tfsa, id:"row-tfsa"   },
+    { name:"RPP — Rani pension",    growth:"5% / 2.5% real", now:25979,  at65:rpp65,   real:rpp65/defl,   key:"rpp",  contrib:contrib.rpp,  id:"row-rpp"    },
+    { name:"BTC (hold only)",       growth:"8% / 5.5% real", now:12000,  at65:btc65,   real:btc65/defl,   key:null,   contrib:null,         id:"row-btc"    },
+    { name:"India property (sell)", growth:"2.5% / 0% real", now:300000, at65:india65, real:india65/defl, key:null,   contrib:null,         id:"row-india"  },
+    { name:"Woodstock 1/3 (sell)",  growth:"2.5% / 0% real", now:216667, at65:wood65,  real:wood65/defl,  key:null,   contrib:null,         id:"row-wood"   },
   ];
 
   container.innerHTML = `
@@ -1112,19 +1112,19 @@ function renderRpSection() {
           <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#2a6e1e;text-align:right;">Today's $</span>
         </div>
         ${tableRows.map(row=>`
-          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:8px 12px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
+          <div id="${row.id}" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:8px 12px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
             onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'" class="rp-portfolio-row">
             <span style="font-size:13px;color:#333;">${row.name}</span>
             <span class="rp-col-growth" style="font-size:11px;color:#888;text-align:center;">${row.growth}</span>
             <div style="text-align:right;">${row.key ? inp(row.key,row.contrib) : '<span style="font-size:12px;color:#ccc;">—</span>'}</div>
-            <span class="rp-col-nominal" style="font-size:13px;font-weight:600;color:#555;text-align:right;font-variant-numeric:tabular-nums;">${fmt(row.at65)}</span>
-            <span style="font-size:13px;font-weight:600;color:#2a6e1e;text-align:right;font-variant-numeric:tabular-nums;">${fmt(row.real)}</span>
+            <span id="${row.id}-nom" class="rp-col-nominal" style="font-size:13px;font-weight:600;color:#555;text-align:right;font-variant-numeric:tabular-nums;">${fmt(row.at65)}</span>
+            <span id="${row.id}-real" style="font-size:13px;font-weight:600;color:#2a6e1e;text-align:right;font-variant-numeric:tabular-nums;">${fmt(row.real)}</span>
           </div>`).join('')}
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:9px 12px;background:#f4f3ef;border-top:1px solid rgba(0,0,0,0.1);">
           <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total liquid</span><span></span>
-          <span style="font-size:12px;font-weight:600;color:#1a5280;text-align:right;">${fmtM(contrib.rrsp+contrib.tfsa+contrib.rpp)}</span>
-          <span style="font-size:13px;font-weight:700;color:#555;text-align:right;">${fmt(liquid)}</span>
-          <span style="font-size:13px;font-weight:700;color:#2a6e1e;text-align:right;">${fmt(liqReal)}</span>
+          <span id="tbl-total-contrib" style="font-size:12px;font-weight:600;color:#1a5280;text-align:right;">${fmtM(contrib.rrsp+contrib.tfsa+contrib.rpp)}</span>
+          <span id="tbl-total-nom" style="font-size:13px;font-weight:700;color:#555;text-align:right;">${fmt(liquid)}</span>
+          <span id="tbl-total-real" style="font-size:13px;font-weight:700;color:#2a6e1e;text-align:right;">${fmt(liqReal)}</span>
         </div>
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:8px 12px;background:#f8f7f4;">
           <span style="font-size:12px;color:#888;">Primary home (kept)</span>
@@ -1360,6 +1360,7 @@ function updateRetTotals() {
 
   // Step 3 — fully updated
   const registered65 = rrsp65+tfsa65+rpp65+btc65;
+  // Step 3 cards
   setEl('s3-registered',     fmt(registered65/defl));
   setEl('s3-registered-nom', fmt(registered65));
   setEl('s3-india',          fmt(india65/defl));
@@ -1368,6 +1369,14 @@ function updateRetTotals() {
   setEl('s3-wood-nom',       fmt(wood65));
   setEl('s3-total',          fmt(liqReal));
   setEl('s3-total-nom',      fmt(liquid));
+  // Portfolio table rows
+  setEl('row-rrsp-nom',   fmt(rrsp65));        setEl('row-rrsp-real',   fmt(rrsp65/defl));
+  setEl('row-tfsa-nom',   fmt(tfsa65));        setEl('row-tfsa-real',   fmt(tfsa65/defl));
+  setEl('row-rpp-nom',    fmt(rpp65));         setEl('row-rpp-real',    fmt(rpp65/defl));
+  setEl('row-btc-nom',    fmt(btc65));         setEl('row-btc-real',    fmt(btc65/defl));
+  setEl('row-india-nom',  fmt(india65));       setEl('row-india-real',  fmt(india65/defl));
+  setEl('row-wood-nom',   fmt(wood65));        setEl('row-wood-real',   fmt(wood65/defl));
+  setEl('tbl-total-nom',  fmt(liquid));        setEl('tbl-total-real',  fmt(liqReal));
 
   // Step 4
   setEl('s4-have',    fmt(liqReal));
