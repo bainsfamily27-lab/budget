@@ -1178,22 +1178,35 @@ function renderRpSection() {
 
         <!-- Step 3: What you'll have -->
         <div style="padding:10px 14px;background:#fff;border-bottom:1px solid rgba(0,0,0,0.06);">
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:8px;">Step 3 — What You'll Have (from ②)</div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bott:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:8px;">Step 3 — What You'll Have (from ②)</div>
+          <!-- Column headers -->
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:4px 0 6px;border-bottom:0.5px solid rgba(0,0,0,0.08);margin-bottom:6px;">
+            <span style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Asset</span>
+            <span style="font-size:10px;color:#2a6e1e;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;text-align:right;">Today's $</span>
+            <span style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;text-align:right;">2051 actual</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center;margin-bottom:4px;">
             <span style="font-size:12px;color:#555;">RRSP + TFSA + RPP + BTC</span>
-            <span style="font-size:12px;color:#555;">${fmt((rrsp65+tfsa65+rpp65+btc65)/defl)}</span>
+            <span id="s3-registered" style="font-size:12px;font-weight:600;color:#2a6e1e;text-align:right;">${fmt((rrsp65+tfsa65+rpp65+btc65)/defl)}</span>
+            <span id="s3-registered-nom" style="font-size:11px;color:#aaa;text-align:right;">${fmt(rrsp65+tfsa65+rpp65+btc65)}</span>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-            <span style="font-size:12px;color:#555;">India property (sell at 65)</span>
-            <span style="font-size:12px;color:#555;">${fmt(india65/defl)}</span>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center;margin-bottom:4px;">
+            <span style="font-size:12px;color:#555;">India property</span>
+            <span id="s3-india" style="font-size:12px;font-weight:600;color:#2a6e1e;text-align:right;">${fmt(india65/defl)}</span>
+            <span id="s3-india-nom" style="font-size:11px;color:#aaa;text-align:right;">${fmt(india65)}</span>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <span style="font-size:12px;color:#555;">Woodstock 1/3 (sell at 65)</span>
-            <span style="font-size:12px;color:#555;">${fmt(wood65/defl)}</span>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center;margin-bottom:4px;">
+            <span style="font-size:12px;color:#555;">Woodstock 1/3</span>
+            <span id="s3-wood" style="font-size:12px;font-weight:600;color:#2a6e1e;text-align:right;">${fmt(wood65/defl)}</span>
+            <span id="s3-wood-nom" style="font-size:11px;color:#aaa;text-align:right;">${fmt(wood65)}</span>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid rgba(0,0,0,0.08);">
-            <span style="font-size:13px;font-weight:600;color:#2a6e1e;">Total liquid (today's $)</span>
-            <span style="font-size:14px;font-weight:700;color:#2a6e1e;">${fmt(liqReal)}</span>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center;padding-top:6px;border-top:1px solid rgba(0,0,0,0.08);">
+            <span style="font-size:13px;font-weight:600;color:#2a6e1e;">Total liquid</span>
+            <span id="s3-total" style="font-size:13px;font-weight:700;color:#2a6e1e;text-align:right;">${fmt(liqReal)}</span>
+            <span id="s3-total-nom" style="font-size:11px;color:#aaa;text-align:right;">${fmt(liquid)}</span>
+          </div>
+          <div style="font-size:10px;color:#aaa;margin-top:8px;font-style:italic;">
+            Today's $ = purchasing power in today's money &nbsp;·&nbsp; 2051 actual = what your account will show in 2051
           </div>
         </div>
 
@@ -1345,8 +1358,16 @@ function updateRetTotals() {
   setEl('s2-calc',    fmt(Math.max(0,fromPort)) + ' ÷ 0.04');
   setEl('s2-needed',  fmt(needed4pct));
 
-  // Step 3 (portfolio doesn't change with expenses — but keep consistent)
-  setEl('s3-total',   fmt(liqReal));
+  // Step 3 — fully updated
+  const registered65 = rrsp65+tfsa65+rpp65+btc65;
+  setEl('s3-registered',     fmt(registered65/defl));
+  setEl('s3-registered-nom', fmt(registered65));
+  setEl('s3-india',          fmt(india65/defl));
+  setEl('s3-india-nom',      fmt(india65));
+  setEl('s3-wood',           fmt(wood65/defl));
+  setEl('s3-wood-nom',       fmt(wood65));
+  setEl('s3-total',          fmt(liqReal));
+  setEl('s3-total-nom',      fmt(liquid));
 
   // Step 4
   setEl('s4-have',    fmt(liqReal));
