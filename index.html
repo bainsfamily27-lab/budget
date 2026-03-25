@@ -616,13 +616,16 @@ const FS_DEFAULTS = {
 let fsData = JSON.parse(JSON.stringify(FS_DEFAULTS));
 
 // ── REFRESH RETIREMENT IF VISIBLE ────────────────────────
+let rpNeedsRefresh = false;
+
 function refreshRetirementIfVisible() {
-  // If retirement tab is currently showing, fully re-render it
-  if (privateUnlocked && privateTab === 'retirement') {
-    const c = document.getElementById("rp-container");
-    if (c) renderRpSection();
-  } else if (typeof updateRetTotals === 'function') {
-    updateRetTotals();
+  const rpContainer = document.getElementById("rp-container");
+  if (rpContainer) {
+    // Retirement tab is open — re-render it now with fresh fsData
+    renderRpSection();
+  } else {
+    // Retirement tab not open — flag it to re-render when opened
+    rpNeedsRefresh = true;
   }
 }
 
@@ -1499,19 +1502,17 @@ function renderPrivateTabContent() {
   if (!el) return;
 
   if (privateTab === 'summary') {
-    // Keep id as "fs-container" so subsequent renderFsSection() calls work
     el.innerHTML = '<div id="fs-container"></div>';
     renderFsSection();
   } else {
-    // Keep id as "rp-container" so subsequent renderRpSection() calls work
     el.innerHTML = '<div id="rp-container"></div>';
+    rpNeedsRefresh = false;
     renderRpSection();
   }
 }
 
 window.switchPrivateTab = (tab) => {
   privateTab = tab;
-  // Update tab buttons
   const sBorder = tab==='summary' ? '#1a5280' : 'transparent';
   const rBorder = tab==='retirement' ? '#2a6e1e' : 'transparent';
   const sColor  = tab==='summary' ? '#1a5280' : '#888';
@@ -1520,6 +1521,8 @@ window.switchPrivateTab = (tab) => {
   const rb = document.getElementById("tab-btn-retirement");
   if (sb) { sb.style.borderBottomColor = sBorder; sb.style.color = sColor; }
   if (rb) { rb.style.borderBottomColor = rBorder; rb.style.color = rColor; }
+  // Always re-render retirement fresh so it picks up any fsData changes
+  if (tab === 'retirement') rpNeedsRefresh = true;
   renderPrivateTabContent();
 };
 
