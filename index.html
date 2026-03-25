@@ -994,13 +994,13 @@ function renderRpSection() {
   window.rpContrib = contrib;
 
   const bal = getRpBalances();
-  const rrspNow = bal.rrsp || 70252;
-  const tfsaNow = bal.tfsa || 6735;
-  const rppNow  = bal.rpp  || 25979;
-  const btcNow  = bal.btc  || 12000;
-  const indiaNow= bal.india|| 300000;
-  const woodNow = bal.wood || 216667;
-  const respNowVal = bal.resp || 39837;
+  const rrspNow = (bal.rrsp  != null) ? bal.rrsp  : 70252;
+  const tfsaNow = (bal.tfsa  != null) ? bal.tfsa  : 6735;
+  const rppNow  = (bal.rpp   != null) ? bal.rpp   : 25979;
+  const btcNow  = (bal.btc   != null) ? bal.btc   : 12000;
+  const indiaNow= (bal.india != null) ? bal.india : 300000;
+  const woodNow = (bal.wood  != null) ? bal.wood  : 216667;
+  const respNowVal = (bal.resp != null) ? bal.resp : 39837;
 
   const rrsp65  = fv(rrspNow, contrib.rrsp*12, r, yrs);
   const tfsa65  = fv(tfsaNow, contrib.tfsa*12, r, yrs);
@@ -1338,12 +1338,12 @@ function updateRetTotals() {
   const needed4pct = fromPort/0.04;
 
   const bal2 = getRpBalances();
-  const rrsp65 = fv(bal2.rrsp||70252, contrib.rrsp*12, r, yrs);
-  const tfsa65 = fv(bal2.tfsa||6735,  contrib.tfsa*12, r, yrs);
-  const rpp65  = fv(bal2.rpp||25979,  contrib.rpp*12,  r, yrs);
-  const btc65  = (bal2.btc||12000)  * Math.pow(1+btcR, yrs);
-  const india65 = (bal2.india||300000) * Math.pow(1+re, yrs);
-  const wood65  = (bal2.wood||216667)  * Math.pow(1+re, yrs);
+  const rrsp65 = fv((bal2.rrsp!=null)?bal2.rrsp:70252,   contrib.rrsp*12, r, yrs);
+  const tfsa65 = fv((bal2.tfsa!=null)?bal2.tfsa:6735,    contrib.tfsa*12, r, yrs);
+  const rpp65  = fv((bal2.rpp!=null)?bal2.rpp:25979,     contrib.rpp*12,  r, yrs);
+  const btc65  = ((bal2.btc!=null)?bal2.btc:12000)   * Math.pow(1+btcR, yrs);
+  const india65 = ((bal2.india!=null)?bal2.india:300000) * Math.pow(1+re, yrs);
+  const wood65  = ((bal2.wood!=null)?bal2.wood:216667)   * Math.pow(1+re, yrs);
   const liquid  = rrsp65+tfsa65+rpp65+btc65+india65+wood65;
   const liqReal = liquid/defl;
   const surplus = liqReal - needed4pct;
