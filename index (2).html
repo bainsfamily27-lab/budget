@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>House Budget</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 400;
+    background: #eceae4;
+    color: #0d0d0b;
+    min-height: 100vh;
+    padding: 24px 20px;
+  }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Loading */
+  .loading {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 60vh; gap: 16px;
+  }
+  .spinner {
+    width: 32px; height: 32px; border: 3px solid rgba(0,0,0,0.1);
+    border-top-color: #2a6e1e; border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .loading-text { font-size: 14px; color: #555550; }
+
+  /* Header */
+  .header {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin-bottom: 24px; border-bottom: 1px solid rgba(0,0,0,0.12); padding-bottom: 20px;
+    animation: fadeUp 0.4s ease both;
+  }
+  .header h1 {
+    font-family: 'DM Serif Display', serif; font-size: 2rem;
+    font-weight: 400; color: #0d0d0b; letter-spacing: -0.02em; line-height: 1;
+  }
+  .header p { font-size: 12px; color: #555550; margin-top: 6px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .grand-total-val { font-family: 'DM Serif Display', serif; font-size: 2.4rem; color: #2a6e1e; line-height: 1; text-align: right; }
+  .grand-total-label { font-size: 11px; color: #555550; letter-spacing: 0.07em; text-transform: uppercase; margin-top: 4px; text-align: right; }
+
+  /* Summary cards */
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(6, minmax(0,1fr));
+    gap: 10px; margin-bottom: 20px; animation: fadeUp 0.4s 0.05s ease both;
+  }
+  .sum-card {
+    background: #fff; border: 1px solid rgba(0,0,0,0.13); border-radius: 10px; padding: 12px 14px;
+  }
+  .sum-card-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: #333330; margin-bottom: 6px; }
+  .sum-card-val { font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: #0d0d0b; line-height: 1; }
+  .sum-card-sub { font-size: 11px; color: #888; margin-top: 4px; }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex; justify-content: flex-end; align-items: center;
+    gap: 12px; margin-bottom: 14px;
+  }
+  .save-indicator { font-size: 12px; color: #2a6e1e; opacity: 0; transition: opacity 0.3s; }
+  .save-indicator.visible { opacity: 1; }
+  .edit-btn {
+    font-family: 'DM Sans', sans-serif; font-size: 12px;
+    padding: 6px 16px; border-radius: 20px; cursor: pointer;
+    letter-spacing: 0.04em; transition: background 0.2s, color 0.2s;
+    border: 1px solid rgba(0,0,0,0.15); background: rgba(0,0,0,0.05); color: #333330;
+  }
+  .edit-btn.active {
+    background: rgba(42,110,30,0.1); border-color: rgba(42,110,30,0.35); color: #2a6e1e;
+  }
+
+  /* Main layout */
+  .main-grid { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
+
+  /* Sections */
+  .categories { display: flex; flex-direction: column; gap: 14px; }
+  .section {
+    background: #fff; border: 1px solid rgba(0,0,0,0.13); border-radius: 12px;
+    overflow: hidden; animation: fadeUp 0.35s ease both;
+  }
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; min-height: 44px; border-bottom: 1px solid rgba(0,0,0,0.08);
+    cursor: pointer; user-select: none; transition: background 0.15s; -webkit-tap-highlight-color: rgba(0,0,0,0.05);
+  }
+  .section-header:hover { background: #fafaf8; }
+  .section-header.collapsed { border-bottom: none; }
+  .section-title-wrap { display: flex; align-items: center; gap: 10px; }
+  .section-icon {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+  }
+  .section-name { font-size: 13px; font-weight: 600; color: #0d0d0b; }
+  .section-right { display: flex; align-items: center; gap: 12px; }
+  .section-total { font-family: 'DM Serif Display', serif; font-size: 1.05rem; font-weight: 400; }
+  .chevron { color: #888; font-size: 11px; transition: transform 0.2s; }
+  .chevron.collapsed { transform: rotate(-90deg); }
+
+  /* Line items */
+  .section-body { padding: 4px 0; }
+  .line-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 16px; transition: background 0.1s;
+  }
+  .line-item:hover { background: #f8f7f4; }
+  .line-name { font-size: 13px; color: #0d0d0b; font-weight: 450; }
+  .line-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: 12px; }
+  .line-bar-wrap { width: 72px; height: 3px; background: rgba(0,0,0,0.07); border-radius: 2px; }
+  .line-bar { height: 100%; border-radius: 2px; opacity: 0.55; }
+  .line-amount { font-size: 13px; font-weight: 600; color: #0d0d0b; font-variant-numeric: tabular-nums; min-width: 72px; text-align: right; }
+
+  /* Inputs */
+  .name-input, .amount-input {
+    background: transparent; border: none; border-bottom: 1px solid rgba(0,0,0,0.15);
+    font-family: 'DM Sans', sans-serif; color: #0d0d0b; outline: none; padding: 1px 0;
+    font-size: 16px; /* prevent iOS zoom on focus */
+  }
+  .name-input { font-size: 13px; flex: 1; min-width: 0; }
+  .amount-input { font-size: 13px; font-weight: 600; width: 80px; text-align: right; }
+  .name-input:focus, .amount-input:focus { border-bottom-color: #2a6e1e; }
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  /* Remove + Add buttons */
+  .remove-btn {
+    background: none; border: none; cursor: pointer; color: #cc3333;
+    font-size: 16px; padding: 0 4px 0 0; line-height: 1; flex-shrink: 0;
+  }
+  .add-item-btn {
+    width: calc(100% - 32px); margin: 6px 16px 10px;
+    background: none; border: 1px dashed rgba(0,0,0,0.2); border-radius: 6px;
+    font-size: 12px; color: #555550; cursor: pointer; padding: 5px 12px;
+    text-align: left; font-family: 'DM Sans', sans-serif;
+  }
+  .add-item-btn:hover { border-color: rgba(0,0,0,0.35); color: #0d0d0b; }
+
+  /* Chart panel */
+  .chart-panel {
+    background: #fff; border: 1px solid rgba(0,0,0,0.13); border-radius: 12px;
+    padding: 20px; position: sticky; top: 16px; align-self: start;
+    animation: fadeUp 0.4s 0.1s ease both;
+  }
+  .chart-panel-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #555550; margin-bottom: 16px; }
+  .donut-wrap { position: relative; height: 200px; margin-bottom: 16px; }
+  .legend { display: flex; flex-direction: column; gap: 7px; }
+  .legend-item { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
+  .legend-left { display: flex; align-items: center; gap: 7px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .legend-name { color: #555550; }
+  .legend-val { font-weight: 600; color: #0d0d0b; font-variant-numeric: tabular-nums; }
+
+  /* ── MOBILE SPECIFIC ────────────────────────────────── */
+  /* Tab buttons on mobile */
+  @media (max-width: 480px) {
+    body { padding: 12px 10px; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    .sum-card { padding: 10px 12px; }
+    .sum-card-val { font-size: 1rem; }
+
+    /* Private panel tab buttons */
+    #private-container button[onclick*="switchPrivateTab"] {
+      font-size: 11px !important;
+      padding: 10px 10px !important;
+    }
+
+    /* Retirement expenses table — stack note below category */
+    .ret-exp-note { display: none; }
+
+    /* RESP table */
+    .rp-col-nominal { display: none !important; }
+
+    /* Portfolio table — 3 cols instead of 5 */
+    .rp-portfolio-row {
+      grid-template-columns: 2fr 1fr 1fr !important;
+    }
+    .rp-col-growth { display: none !important; }
+  }
+
+    /* ── RESPONSIVE / MOBILE ─────────────────────────────── */
+  @media (max-width: 900px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: repeat(3, 1fr); }
+    .chart-panel { position: static; }
+  }
+
+  @media (max-width: 600px) {
+    body { padding: 14px 12px; }
+    .header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .header h1 { font-size: 1.6rem; }
+    .grand-total-val { font-size: 1.9rem; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .main-grid { grid-template-columns: 1fr; }
+    .chart-panel { position: static; }
+    .fs-cols { grid-template-columns: 1fr !important; }
+    .fs-cols > div:first-child { border-right: none !important; border-bottom: 1px solid rgba(0,0,0,0.08); }
+
+    /* Private panel tabs */
+    #private-container [style*="grid-template-columns:2fr 1fr 1fr 1fr 1fr"] {
+      grid-template-columns: 2fr 1fr 1fr !important;
+    }
+    /* Hide nominal column on mobile — keep today's $ */
+    .rp-col-nominal { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+// Firebase loaded via CDN scripts in <head>
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCi-h2avvX-QTUX5zuKa4J3jaf7LQo_YG8",
+  authDomain: "house-budget-aaef1.firebaseapp.com",
+  projectId: "house-budget-aaef1",
+  storageBucket: "house-budget-aaef1.firebasestorage.app",
+  messagingSenderId: "116442046831",
+  appId: "1:116442046831:web:a9d30c701614f885fbc89a"
+};
+
+const app = firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const DEFAULTS = {
+  home:   { label:"Home",                icon:"🏠", color:"#2a6e1e", items:[{name:"Mortgage",amount:3800},{name:"Utilities",amount:400},{name:"Property Tax",amount:720},{name:"Home Insurance",amount:132.55}] },
+  subs:   { label:"Subscriptions",       icon:"📺", color:"#1a6b8a", items:[{name:"Gym (GoodLife)",amount:152},{name:"IPTV",amount:30},{name:"Home Security",amount:68},{name:"Netflix",amount:24},{name:"Amazon",amount:29},{name:"CAA",amount:20},{name:"Lottery",amount:20},{name:"Fubo",amount:17}] },
+  phone:  { label:"Internet & Phone",    icon:"📱", color:"#6b3fa0", items:[{name:"Rogers (Internet & Home)",amount:113},{name:"Telus (Cell Phones)",amount:135.60}] },
+  food:   { label:"Food & Home Supplies",icon:"🛒", color:"#a06b00", items:[{name:"Booster Juice",amount:80},{name:"A&W / McDonald's",amount:150},{name:"Grocery",amount:650},{name:"Costco",amount:250},{name:"Home Supplies",amount:250}] },
+  auto:   { label:"Auto",                icon:"🚗", color:"#a02020", items:[{name:"Auto Insurance",amount:384.61},{name:"Gas",amount:450},{name:"407 ETR",amount:150}] },
+  kids:   { label:"Kids Activities",     icon:"👧", color:"#7a3080", items:[{name:"Swimming",amount:100},{name:"Soccer",amount:74}] },
+  invest: { label:"Investment",          icon:"📈", color:"#1a5280", items:[{name:"RESP",amount:580},{name:"BTC",amount:200}] },
+  other:  { label:"Others",              icon:"📦", color:"#555550", items:[{name:"House Cleaning",amount:200},{name:"Presto",amount:100},{name:"Life Insurance",amount:270},{name:"Gym (GoodLife)",amount:76},{name:"Enercare",amount:64},{name:"Claude AI",amount:27}] }
+};
+
+// ✏️ CHANGE CATEGORY ORDER HERE — just rearrange the keys in this array
+const CATEGORY_ORDER = ["home", "kids", "subs", "auto", "food", "phone", "invest", "other"];
+
+const fmt = n => "$" + Number(n).toLocaleString("en-CA", {minimumFractionDigits:0, maximumFractionDigits:2});
+const secTotal = cat => cat.items.reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
+const grandTotal = data => Object.values(data).reduce((s,c) => s + secTotal(c), 0);
+
+let data = JSON.parse(JSON.stringify(DEFAULTS));
+let editMode = false;
+let chart = null;
+let saveTimer = null;
+let collapsedSections = {};
+
+// --- Firebase ---
+async function loadData() {
+  try {
+    const snap = await db.collection("budget").doc("main").get();
+    if (snap.exists) data = snap.data();
+  } catch(e) { console.log("Using defaults", e); }
+}
+
+async function saveData() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      await db.collection("budget").doc("main").set(data);
+      showSaved();
+    } catch(e) { console.error("Save failed", e); }
+  }, 800);
+}
+
+function showSaved() {
+  const el = document.querySelector(".save-indicator");
+  if (!el) return;
+  el.classList.add("visible");
+  setTimeout(() => el.classList.remove("visible"), 2000);
+}
+
+// --- Render ---
+function render() {
+  const total = grandTotal(data);
+  const keys = CATEGORY_ORDER.filter(k => data[k]);
+
+  const summaryDefs = [
+    { label:"Home",          val: secTotal(data.home),   sub:"mortgage, tax, ins." },
+    { label:"Food",          val: secTotal(data.food),   sub:"groceries + eats" },
+    { label:"Auto",          val: secTotal(data.auto),   sub:"insurance, gas, 407" },
+    { label:"Investments",   val: secTotal(data.invest), sub:"RESP + BTC" },
+    { label:"Subscriptions", val: secTotal(data.subs),   sub:"streaming + memberships" },
+    { label:"Others",        val: secTotal(data.other)+secTotal(data.phone)+secTotal(data.kids), sub:"phone, transit, etc." },
+  ];
+
+  document.getElementById("app").innerHTML = `
+    <div class="header">
+      <div>
+        <h1>Monthly Expenses</h1>
+      </div>
+      <div>
+        <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:8px;">
+          <div class="grand-total-val" id="grand-total">${fmt(total)}</div>
+          <div style="font-size:13px;font-weight:600;color:#2a6e1e;letter-spacing:0.04em;">CAD</div>
+        </div>
+        <div class="grand-total-label">total / month</div>
+
+      </div>
+    </div>
+
+    <div class="summary-grid" id="summary-grid">
+      ${summaryDefs.map(s => `
+        <div class="sum-card">
+          <div class="sum-card-label">${s.label}</div>
+          <div class="sum-card-val" id="sum-${s.label.toLowerCase().replace(/\s+/g,'-')}">${fmt(s.val)}</div>
+          <div class="sum-card-sub">${s.sub}</div>
+        </div>
+      `).join("")}
+    </div>
+
+    <div class="toolbar">
+      <span class="save-indicator">✓ Saved to cloud</span>
+      <button class="edit-btn ${editMode?"active":""}" onclick="toggleEdit()">${editMode ? "✓ Done" : "✎ Edit"}</button>
+    </div>
+
+    <div class="main-grid">
+      <div class="categories" id="categories">
+        ${keys.map((key,i) => renderSection(key, i)).join("")}
+      </div>
+      <div class="chart-panel">
+        <div class="chart-panel-label">Breakdown</div>
+        <div class="donut-wrap"><canvas id="donutChart"></canvas></div>
+        <div class="legend" id="legend"></div>
+      </div>
+    </div>
+  `;
+
+  buildChart();
+}
+
+function renderSection(key, animIdx) {
+  const cat = data[key];
+  const total = secTotal(cat);
+  const gt = grandTotal(data);
+  const pct = gt > 0 ? (total/gt*100).toFixed(1) : "0.0";
+  const catMax = Math.max(...cat.items.map(i => parseFloat(i.amount)||0), 1);
+  const collapsed = collapsedSections[key];
+
+  return `
+    <div class="section" id="sec-${key}" style="animation-delay:${animIdx*0.04}s">
+      <div class="section-header ${collapsed?"collapsed":""}" onclick="toggleSection('${key}')">
+        <div class="section-title-wrap">
+          <div class="section-icon" style="background:${cat.color}18">${cat.icon}</div>
+          <span class="section-name">${cat.label}</span>
+        </div>
+        <div class="section-right">
+          <span style="font-size:11px;color:#888">${pct}%</span>
+          <span class="section-total" id="sectotal-${key}" style="color:${cat.color}">${fmt(total)}</span>
+          <span class="chevron ${collapsed?"collapsed":""}">▾</span>
+        </div>
+      </div>
+      ${!collapsed ? `
+      <div class="section-body">
+        ${cat.items.map((item,idx) => `
+          <div class="line-item">
+            ${editMode
+              ? `<div style="display:flex;align-items:center;gap:6px;flex:1">
+                   <button class="remove-btn" onclick="removeItem('${key}',${idx})">×</button>
+                   <input class="name-input" type="text" value="${item.name.replace(/"/g,'&quot;')}"
+                     onchange="updateName('${key}',${idx},this.value)">
+                 </div>`
+              : `<span class="line-name">${item.name}</span>`
+            }
+            <div class="line-right">
+              <div class="line-bar-wrap">
+                <div class="line-bar" style="width:${Math.max(4,(parseFloat(item.amount)||0)/catMax*100).toFixed(0)}%;background:${cat.color}"></div>
+              </div>
+              ${editMode
+                ? `<input class="amount-input" type="number" value="${item.amount}"
+                     onchange="updateAmount('${key}',${idx},this.value)"
+                     onfocus="this.select()">`
+                : `<span class="line-amount">${fmt(item.amount)}</span>`
+              }
+            </div>
+          </div>
+        `).join("")}
+        ${editMode ? `<button class="add-item-btn" onclick="addItem('${key}')">+ Add item</button>` : ""}
+      </div>` : ""}
+    </div>
+  `;
+}
+
+function buildChart() {
+  const keys = CATEGORY_ORDER.filter(k => data[k]);
+  const values = keys.map(k => secTotal(data[k]));
+  const colors = keys.map(k => data[k].color);
+  const labels = keys.map(k => data[k].label);
+  const total = grandTotal(data);
+
+  const canvas = document.getElementById("donutChart");
+  if (!canvas) return;
+
+  if (chart) { chart.destroy(); chart = null; }
+
+  chart = new Chart(canvas, {
+    type: "doughnut",
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors.map(c=>c+"cc"), borderColor: colors, borderWidth: 1.5, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: "68%",
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)} (${total>0?(ctx.raw/total*100).toFixed(1):0}%)` },
+          backgroundColor: "#fff", borderColor: "rgba(0,0,0,0.1)", borderWidth: 1,
+          titleColor: "#0d0d0b", bodyColor: "#555550", padding: 10
+        }
+      }
+    }
+  });
+
+  const legend = document.getElementById("legend");
+  if (legend) {
+    legend.innerHTML = keys.map(k => `
+      <div class="legend-item">
+        <div class="legend-left">
+          <div class="legend-dot" style="background:${data[k].color}"></div>
+          <span class="legend-name">${data[k].label}</span>
+        </div>
+        <span class="legend-val">${fmt(secTotal(data[k]))}</span>
+      </div>
+    `).join("");
+  }
+}
+
+// --- Actions ---
+window.toggleEdit = () => {
+  editMode = !editMode;
+  render();
+};
+
+window.toggleSection = (key) => {
+  collapsedSections[key] = !collapsedSections[key];
+  const sec = document.getElementById(`sec-${key}`);
+  if (sec) sec.outerHTML = renderSection(key, 0);
+};
+
+window.updateAmount = (key, idx, val) => {
+  data[key].items[idx].amount = parseFloat(val) || 0;
+  refreshTotals(key);
+  saveData();
+};
+
+window.updateName = (key, idx, val) => {
+  data[key].items[idx].name = val.trim() || data[key].items[idx].name;
+  saveData();
+};
+
+window.addItem = (key) => {
+  data[key].items.push({ name: "New item", amount: 0 });
+  render();
+  saveData();
+};
+
+window.removeItem = (key, idx) => {
+  data[key].items.splice(idx, 1);
+  render();
+  saveData();
+};
+
+function refreshTotals(key) {
+  // Update section total
+  const st = document.getElementById(`sectotal-${key}`);
+  if (st) st.textContent = fmt(secTotal(data[key]));
+
+  // Update grand total
+  const gt = document.getElementById("grand-total");
+  if (gt) gt.textContent = fmt(grandTotal(data));
+
+  // Update summary cards
+  const summaryMap = {
+    home: "home", food: "food", auto: "auto",
+    invest: "investments", subs: "subscriptions",
+    other: "others", phone: "others", kids: "others"
+  };
+  const othersTotal = secTotal(data.other)+secTotal(data.phone)+secTotal(data.kids);
+  document.querySelectorAll("[id^='sum-']").forEach(el => {
+    if (el.id === "sum-home")          el.textContent = fmt(secTotal(data.home));
+    if (el.id === "sum-food")          el.textContent = fmt(secTotal(data.food));
+    if (el.id === "sum-auto")          el.textContent = fmt(secTotal(data.auto));
+    if (el.id === "sum-investments")   el.textContent = fmt(secTotal(data.invest));
+    if (el.id === "sum-subscriptions") el.textContent = fmt(secTotal(data.subs));
+    if (el.id === "sum-others")        el.textContent = fmt(othersTotal);
+  });
+
+  // Rebuild chart
+  buildChart();
+}
+
+// --- USD Rate ---
+async function fetchUSD() {
+  try {
+    const res = await fetch("https://api.exchangerate-api.com/v4/latest/CAD");
+    const json = await res.json();
+    const rate = json.rates.USD;
+    window._usdRate = rate;
+    updateUSD();
+  } catch(e) {
+    const el = document.getElementById("usd-equiv");
+    if (el) el.textContent = "";
+  }
+}
+
+function updateUSD() {
+  const rate = window._usdRate;
+  if (!rate) return;
+  const total = grandTotal(data);
+  const usd = total * rate;
+  const el = document.getElementById("usd-equiv");
+  if (el) el.textContent = "≈ $" + usd.toLocaleString("en-US", {minimumFractionDigits:0, maximumFractionDigits:0}) + " USD";
+}
+
+// --- Init ---
+// Render immediately on page load
+window.addEventListener('DOMContentLoaded', function() {
+  try { render(); } catch(e) { console.error("render failed:", e); }
+
+  setTimeout(function() {
+    try { injectPrivatePanel(); } catch(e) { console.error("injectPrivatePanel failed:", e); }
+  }, 200);
+
+  // Load Firebase data in background, then re-render and re-inject
+  try {
+    loadData().then(function() {
+      try { render(); } catch(e) {}
+      setTimeout(function() { try { injectPrivatePanel(); } catch(e) {} }, 100);
+    }).catch(function(e) { console.warn("Firebase:", e); });
+  } catch(e) { console.warn("Firebase init failed:", e); }
+});
+
+
+// ============================================================
+// FINANCIAL SUMMARY (password protected — investments + liabilities + net worth)
+// ============================================================
+
+const FS_PASSWORD = "ajax123";
+
+const FS_DEFAULTS = {
+  investments: {
+    retirement: {
+      label: "Retirement",
+      items: [
+        { name: "BTC",                   amount: 12000  },
+        { name: "RRSP (Rani - CIBC)",    amount: 9180   },
+        { name: "RSP (Manny - RBC)",     amount: 61072  },
+        { name: "RPP (Rani - Manulife)", amount: 25979  },
+        { name: "TFSA (Manny - TD)",     amount: 6735   },
+      ]
+    },
+    kids: {
+      label: "Kids Investment",
+      items: [
+        { name: "RESP (Noor & Veer)", amount: 39837 },
+      ]
+    },
+    others: {
+      label: "Others",
+      items: [
+        { name: "Gold",           amount: 0      },
+        { name: "India Property", amount: 300000 },
+      ]
+    },
+    cash: {
+      label: "Cash & Savings",
+      items: [
+        { name: "Cash on Hand", amount: 0 },
+      ]
+    }
+  },
+  real_estate: {
+    primary:   { label: "Primary Home",            value: 1200000, mortgage: 308000 },
+    woodstock: { label: "Woodstock Rental (1/3)",  value: 216667,  mortgage: 169333 },
+  },
+  liabilities: {
+    mortgages: {
+      label: "Mortgages",
+      items: [
+        { name: "Primary Home Mortgage",        amount: 308000 },
+        { name: "Woodstock Rental (1/3 share)", amount: 169333 },
+      ]
+    }
+  }
+};
+
+let fsData = JSON.parse(JSON.stringify(FS_DEFAULTS));
+let fsUnlocked = false;
+let fsEditMode = false;
+let fsSaveTimer = null;
+
+const fsFmt = n => "$" + Number(n).toLocaleString("en-CA", {minimumFractionDigits:0, maximumFractionDigits:0});
+const fsInvTotal = () => Object.values(fsData.investments).reduce((s,cat) => s + cat.items.reduce((ss,i) => ss+(parseFloat(i.amount)||0), 0), 0);
+const fsLibTotal = () => Object.values(fsData.liabilities).reduce((s,cat) => s + cat.items.reduce((ss,i) => ss+(parseFloat(i.amount)||0), 0), 0);
+const fsPrimaryEquity = () => fsData.real_estate.primary.value - fsData.real_estate.primary.mortgage;
+const fsWoodstockEquity = () => fsData.real_estate.woodstock.value - fsData.real_estate.woodstock.mortgage;
+const fsNwWith = () => fsInvTotal() + fsPrimaryEquity() + fsWoodstockEquity() - fsLibTotal();
+const fsNwWithout = () => fsInvTotal() + fsWoodstockEquity() - fsData.liabilities.mortgages.items[1].amount;
+
+async function loadFsData() {
+  try {
+    const snap = await db.collection("budget").doc("financialsummary").get();
+    if (snap.exists) {
+      const d = snap.data();
+      // merge carefully to preserve structure
+      if (d.investments) fsData.investments = d.investments;
+      if (d.real_estate) fsData.real_estate = d.real_estate;
+      if (d.liabilities) fsData.liabilities = d.liabilities;
+    }
+  } catch(e) { console.warn("loadFsData failed, using defaults", e); }
+}
+
+async function saveFsData() {
+  clearTimeout(fsSaveTimer);
+  fsSaveTimer = setTimeout(async () => {
+    try {
+      await db.collection("budget").doc("financialsummary").set(fsData);
+      const el = document.getElementById("fs-saved");
+      if (el) { el.style.opacity = 1; setTimeout(() => { el.style.opacity = 0; }, 2000); }
+    } catch(e) {}
+  }, 800);
+}
+
+// ── RETIREMENT PLAN FIREBASE SAVE/LOAD ───────────────────
+let rpSaveTimer = null;
+
+async function loadRpData() {
+  try {
+    const snap = await db.collection("budget").doc("retirementplan").get();
+    if (snap.exists) {
+      const d = snap.data();
+      if (d.contrib)     window.rpContrib    = d.contrib;
+      if (d.retExpenses) window.retExpenses  = d.retExpenses;
+    }
+  } catch(e) { console.warn("loadRpData failed", e); }
+}
+
+async function saveRpData() {
+  clearTimeout(rpSaveTimer);
+  rpSaveTimer = setTimeout(async () => {
+    try {
+      await db.collection("budget").doc("retirementplan").set({
+        contrib:     window.rpContrib    || {},
+        retExpenses: window.retExpenses  || [],
+      });
+      const el = document.getElementById("rp-saved");
+      if (el) { el.style.opacity = 1; setTimeout(() => { el.style.opacity = 0; }, 2000); }
+    } catch(e) { console.warn("saveRpData failed", e); }
+  }, 800);
+}
+
+function renderFsSection() {
+  const container = document.getElementById("fs-container");
+  if (!container) return;
+
+  if (!fsUnlocked) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:40px 20px;">
+        <div style="font-size:36px;margin-bottom:12px;">🔒</div>
+        <div style="font-size:15px;font-weight:600;color:#0d0d0b;margin-bottom:6px;">Financial Summary</div>
+        <div style="font-size:12px;color:#888;margin-bottom:20px;">Enter password to view</div>
+        <div style="display:flex;gap:8px;justify-content:center;align-items:center;">
+          <input id="fs-pw-input" type="password" placeholder="Password"
+            style="border:1px solid rgba(0,0,0,0.15);border-radius:8px;padding:8px 14px;font-size:13px;font-family:inherit;outline:none;width:160px;"
+            onkeydown="if(event.key==='Enter') checkFsPassword()">
+          <button onclick="checkFsPassword()"
+            style="background:#0d0d0b;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-family:inherit;cursor:pointer;">
+            Unlock
+          </button>
+        </div>
+        <div id="fs-pw-error" style="font-size:12px;color:#c0392b;margin-top:10px;opacity:0;transition:opacity 0.3s;">Incorrect password</div>
+      </div>
+    `;
+    return;
+  }
+
+  const invTotal   = fsInvTotal();
+  const libTotal   = fsLibTotal();
+  const primEquity = fsPrimaryEquity();
+  const woodEquity = fsWoodstockEquity();
+  const nwWith     = fsNwWith();
+  const nwWithout  = fsNwWithout();
+  const totalAssets = invTotal + primEquity + woodEquity;
+
+  // Build investment rows for full-width layout
+  const invSections = Object.keys(fsData.investments).map(catKey => {
+    const cat = fsData.investments[catKey];
+    const catTotal = cat.items.reduce((s,i) => s+(parseFloat(i.amount)||0), 0);
+    const rows = cat.items.map((item, idx) => {
+      const nameEl = fsEditMode
+        ? `<input type="text" value="${item.name.replace(/"/g,'&quot;')}" onchange="updateFsInv('${catKey}',${idx},'name',this.value)"
+             style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-family:inherit;color:#0d0d0b;outline:none;flex:1;min-width:0;padding:1px 0;">`
+        : `<span style="font-size:13px;color:#444;">${item.name}</span>`;
+      const amtEl = fsEditMode
+        ? `<input type="number" value="${item.amount}" onchange="updateFsInv('${catKey}',${idx},'amount',this.value)" onfocus="this.select()"
+             style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;font-family:inherit;color:#1a5280;width:100px;text-align:right;outline:none;padding:1px 0;">`
+        : `<span style="font-size:13px;font-weight:600;color:#1a5280;font-variant-numeric:tabular-nums;">${fsFmt(item.amount)}</span>`;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 16px 6px 32px;transition:background 0.1s;"
+                onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+                ${nameEl}
+                <div style="margin-left:12px;flex-shrink:0;">${amtEl}</div>
+              </div>`;
+    }).join('');
+    const addBtn = fsEditMode
+      ? `<div style="padding:4px 16px 8px 32px;"><button onclick="addFsInvItem('${catKey}')"
+           style="background:none;border:1px dashed rgba(0,0,0,0.15);border-radius:5px;font-size:11px;color:#888;cursor:pointer;padding:3px 10px;font-family:inherit;">+ Add item</button></div>`
+      : '';
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px 6px;">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;">${cat.label}</span>
+        <span style="font-size:13px;font-weight:600;color:#1a5280;font-variant-numeric:tabular-nums;">${fsFmt(catTotal)}</span>
+      </div>
+      ${rows}${addBtn}`;
+  }).join('');
+
+  // Real estate rows
+  const reRows = Object.keys(fsData.real_estate).map(key => {
+    const re = fsData.real_estate[key];
+    const equity = re.value - re.mortgage;
+    if (fsEditMode) {
+      return `<div style="padding:6px 16px 6px 32px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+          <span style="font-size:13px;color:#444;">${re.label}</span>
+          <span style="font-size:13px;font-weight:600;color:#1a5280;font-variant-numeric:tabular-nums;">${fsFmt(equity)}</span>
+        </div>
+        <div style="display:flex;gap:16px;padding-left:8px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:#888;">Value</span>
+            <input type="number" value="${re.value}" onchange="updateFsRe('${key}','value',this.value)" onfocus="this.select()"
+              style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:12px;font-family:inherit;color:#0d0d0b;width:90px;outline:none;padding:1px 0;">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:#a02020;">Mortgage</span>
+            <input type="number" value="${re.mortgage}" onchange="updateFsRe('${key}','mortgage',this.value)" onfocus="this.select()"
+              style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:12px;font-family:inherit;color:#a02020;width:90px;outline:none;padding:1px 0;">
+          </div>
+        </div>
+      </div>`;
+    }
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 16px 6px 32px;transition:background 0.1s;"
+              onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+              <div>
+                <span style="font-size:13px;color:#444;">${re.label}</span>
+                <span style="font-size:11px;color:#999;margin-left:8px;">${fsFmt(re.value)} − ${fsFmt(re.mortgage)}</span>
+              </div>
+              <span style="font-size:13px;font-weight:600;color:#1a5280;font-variant-numeric:tabular-nums;flex-shrink:0;margin-left:12px;">${fsFmt(equity)}</span>
+            </div>`;
+  }).join('');
+
+  // Liability rows
+  const libRows = fsData.liabilities.mortgages.items.map((item, idx) => {
+    const nameEl = fsEditMode
+      ? `<input type="text" value="${item.name.replace(/"/g,'&quot;')}" onchange="updateFsLib(${idx},'name',this.value)"
+           style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-family:inherit;color:#0d0d0b;outline:none;flex:1;min-width:0;padding:1px 0;">`
+      : `<span style="font-size:13px;color:#444;">${item.name}</span>`;
+    const amtEl = fsEditMode
+      ? `<input type="number" value="${item.amount}" onchange="updateFsLib(${idx},'amount',this.value)" onfocus="this.select()"
+           style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;font-family:inherit;color:#a02020;width:100px;text-align:right;outline:none;padding:1px 0;">`
+      : `<span style="font-size:13px;font-weight:600;color:#a02020;font-variant-numeric:tabular-nums;">${fsFmt(item.amount)}</span>`;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 16px 6px 32px;transition:background 0.1s;"
+              onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+              ${nameEl}
+              <div style="margin-left:12px;flex-shrink:0;">${amtEl}</div>
+            </div>`;
+  }).join('');
+
+  const editBtnStyle = fsEditMode
+    ? "border:1px solid rgba(42,110,30,0.35);background:rgba(42,110,30,0.1);color:#2a6e1e;"
+    : "border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#333330;";
+
+  container.innerHTML = `
+
+    <!-- TOOLBAR -->
+    <div style="padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.08);display:flex;justify-content:space-between;align-items:center;background:#fafaf8;">
+      <span style="font-size:11px;color:#aaa;letter-spacing:0.04em;">All values in CAD</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="fs-saved" style="font-size:12px;color:#2a6e1e;opacity:0;transition:opacity 0.3s;">✓ Saved</span>
+        <button onclick="toggleFsEdit()" style="font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;${editBtnStyle}">
+          ${fsEditMode ? "✓ Done" : "✎ Edit"}
+        </button>
+        <button onclick="lockFs()" style="font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#888;">
+          🔒 Lock
+        </button>
+      </div>
+    </div>
+
+    <!-- NET WORTH HEADLINES -->
+    <div style="padding:20px 16px;border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#aaa;margin-bottom:12px;">Net Worth</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+        <div style="background:#f0f7ee;border:1px solid rgba(42,110,30,0.2);border-radius:10px;padding:14px 16px;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#2a6e1e;margin-bottom:6px;">Including Primary Home</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:1.8rem;color:#2a6e1e;line-height:1;">${fsFmt(nwWith)}</div>
+          <div style="font-size:11px;color:#6a9e6a;margin-top:4px;">all assets − all liabilities</div>
+        </div>
+        <div style="background:#eef4fa;border:1px solid rgba(26,82,128,0.2);border-radius:10px;padding:14px 16px;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#1a5280;margin-bottom:6px;">Excluding Primary Home</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:1.8rem;color:#1a5280;line-height:1;">${fsFmt(nwWithout)}</div>
+          <div style="font-size:11px;color:#6a82ae;margin-top:4px;">investments + Woodstock equity</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ASSETS SECTION -->
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px 8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Assets</span>
+        </div>
+        <span style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#2a6e1e;">${fsFmt(totalAssets)}</span>
+      </div>
+
+      <!-- Investments subsection -->
+      <div style="margin:0 16px 12px;background:#f8f9ff;border:1px solid rgba(26,82,128,0.12);border-radius:8px;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 16px;background:rgba(26,82,128,0.06);border-bottom:1px solid rgba(26,82,128,0.1);">
+          <span style="font-size:12px;font-weight:600;color:#1a5280;">📊 Investments</span>
+          <span style="font-size:13px;font-weight:700;color:#1a5280;font-variant-numeric:tabular-nums;">${fsFmt(invTotal)}</span>
+        </div>
+        ${invSections}
+      </div>
+
+      <!-- Real Estate subsection -->
+      <div style="margin:0 16px 16px;background:#f8fff8;border:1px solid rgba(42,110,30,0.12);border-radius:8px;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 16px;background:rgba(42,110,30,0.06);border-bottom:1px solid rgba(42,110,30,0.1);">
+          <span style="font-size:12px;font-weight:600;color:#2a6e1e;">🏠 Real Estate Equity</span>
+          <span style="font-size:13px;font-weight:700;color:#2a6e1e;font-variant-numeric:tabular-nums;">${fsFmt(primEquity + woodEquity)}</span>
+        </div>
+        ${reRows}
+      </div>
+    </div>
+
+    <!-- LIABILITIES SECTION -->
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px 8px;">
+        <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Liabilities</span>
+        <span style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#a02020;">${fsFmt(libTotal)}</span>
+      </div>
+
+      <div style="margin:0 16px 16px;background:#fff8f8;border:1px solid rgba(160,32,32,0.12);border-radius:8px;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 16px;background:rgba(160,32,32,0.06);border-bottom:1px solid rgba(160,32,32,0.1);">
+          <span style="font-size:12px;font-weight:600;color:#a02020;">🏦 Mortgages</span>
+          <span style="font-size:13px;font-weight:700;color:#a02020;font-variant-numeric:tabular-nums;">${fsFmt(libTotal)}</span>
+        </div>
+        ${libRows}
+      </div>
+    </div>
+
+    <!-- NET WORTH SUMMARY BAR -->
+    <div style="padding:16px 20px;background:#f8f7f4;">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;font-size:13px;text-align:center;">
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:2px;">Total Assets</span>
+          <span style="font-weight:700;color:#2a6e1e;font-size:15px;font-variant-numeric:tabular-nums;">${fsFmt(totalAssets)}</span>
+        </div>
+        <span style="font-size:18px;color:#ccc;padding:0 4px;">−</span>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:2px;">Total Liabilities</span>
+          <span style="font-weight:700;color:#a02020;font-size:15px;font-variant-numeric:tabular-nums;">${fsFmt(libTotal)}</span>
+        </div>
+        <span style="font-size:18px;color:#ccc;padding:0 4px;">=</span>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:2px;">Net Worth</span>
+          <span style="font-weight:700;color:#2a6e1e;font-size:18px;font-family:'DM Serif Display',serif;">${fsFmt(nwWith)}</span>
+        </div>
+      </div>
+    </div>
+
+  `;
+}
+
+window.checkFsPassword = () => {
+  const input = document.getElementById("fs-pw-input");
+  if (input && input.value === FS_PASSWORD) {
+    fsUnlocked = true;
+    loadFsData().then(() => renderFsSection());
+  } else {
+    const err = document.getElementById("fs-pw-error");
+    if (err) { err.style.opacity = 1; setTimeout(() => { err.style.opacity = 0; }, 2000); }
+    if (input) { input.value = ""; input.focus(); }
+  }
+};
+
+window.lockFs = () => { fsUnlocked = false; fsEditMode = false; renderFsSection(); };
+window.toggleFsEdit = () => { fsEditMode = !fsEditMode; renderFsSection(); };
+
+window.updateFsInv = (catKey, idx, field, val) => {
+  if (field === "amount") fsData.investments[catKey].items[idx].amount = parseFloat(val)||0;
+  else fsData.investments[catKey].items[idx].name = val.trim() || fsData.investments[catKey].items[idx].name;
+  saveFsData(); renderFsSection();
+};
+
+window.updateFsRe = (key, field, val) => {
+  fsData.real_estate[key][field] = parseFloat(val)||0;
+  saveFsData(); renderFsSection();
+};
+
+window.updateFsLib = (idx, field, val) => {
+  if (field === "amount") {
+    fsData.liabilities.mortgages.items[idx].amount = parseFloat(val)||0;
+    // Sync mortgage to real estate for equity calc
+    if (idx === 0) fsData.real_estate.primary.mortgage = parseFloat(val)||0;
+    if (idx === 1) fsData.real_estate.woodstock.mortgage = parseFloat(val)||0;
+  } else {
+    fsData.liabilities.mortgages.items[idx].name = val.trim() || fsData.liabilities.mortgages.items[idx].name;
+  }
+  saveFsData(); renderFsSection();
+};
+
+window.addFsInvItem = (catKey) => {
+  fsData.investments[catKey].items.push({name:"New item", amount:0});
+  renderFsSection(); saveFsData();
+};
+
+
+// ============================================================
+// RETIREMENT PLANNER
+// ============================================================
+let rpUnlocked = false;
+
+function renderRpSection() {
+  const container = document.getElementById("rp-container");
+  if (!container) return;
+
+  const inf=0.025, r=0.05, re=0.025, btcR=0.08, yrs=25;
+  const defl = Math.pow(1+inf, yrs);
+  const fv = (pv,c,rate,n) => pv*Math.pow(1+rate,n) + c*(Math.pow(1+rate,n)-1)/rate;
+  const fmt = n => "$" + Math.round(n).toLocaleString("en-CA");
+  const fmtM = n => "$" + Math.round(n).toLocaleString("en-CA") + "/mo";
+
+  const contrib = window.rpContrib || { rrsp:1250, tfsa:1208, rpp:500, resp:580 };
+  window.rpContrib = contrib;
+
+  const rrsp65  = fv(70252,  contrib.rrsp*12, r, yrs);
+  const tfsa65  = fv(6735,   contrib.tfsa*12, r, yrs);
+  const rpp65   = fv(25979,  contrib.rpp*12,  r, yrs);
+  const btc65   = 12000  * Math.pow(1+btcR, yrs);
+  const india65 = 300000 * Math.pow(1+re, yrs);
+  const wood65  = (650000/3) * Math.pow(1+re, yrs);
+  const prim65  = 1200000 * Math.pow(1+re, yrs);
+  const liquid  = rrsp65+tfsa65+rpp65+btc65+india65+wood65;
+  const liqReal = liquid/defl;
+  const primReal= prim65/defl;
+
+  const respNow=39837, nyr=12, vyr=14;
+  const cesg=1000, respAnnual=contrib.resp*12+cesg;
+  const respNoor = fv(respNow, respAnnual, r, nyr);
+  const cn = 120000*Math.pow(1+inf,nyr);
+  const cv = 120000*Math.pow(1+inf,vyr);
+  const rem = Math.max(respNoor-cn,0);
+  const respVeer = fv(rem, respAnnual, r, 2);
+  const veerGap = Math.max(cv-respVeer,0);
+  const topUp = veerGap>0 ? Math.round(veerGap*(r/12)/(Math.pow(1+r/12,vyr*12)-1)) : 0;
+
+  const govtMo = 3500;
+  const retTotal = (window.retExpenses||[]).reduce((s,r)=>s+(parseFloat(r.amt)||0),0) || 4482;
+  const fromPort = Math.max(0, retTotal-govtMo)*12;
+  const needed4pct = fromPort/0.04;
+  const surplus = liqReal - needed4pct;
+
+  const inp = (key,val) => `<input type="number" value="${val}"
+    onchange="window.rpContrib['${key}']=parseFloat(this.value)||0; renderRpSection(); saveRpData();"
+    onfocus="this.select()"
+    style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;">`;
+
+  const tableRows = [
+    { name:"RRSP (US equities)",    growth:"5% / 2.5% real", now:70252,  at65:rrsp65,  real:rrsp65/defl,  key:"rrsp", contrib:contrib.rrsp },
+    { name:"TFSA — XEQT",           growth:"5% / 2.5% real", now:6735,   at65:tfsa65,  real:tfsa65/defl,  key:"tfsa", contrib:contrib.tfsa },
+    { name:"RPP — Rani pension",    growth:"5% / 2.5% real", now:25979,  at65:rpp65,   real:rpp65/defl,   key:"rpp",  contrib:contrib.rpp  },
+    { name:"BTC (hold only)",       growth:"8% / 5.5% real", now:12000,  at65:btc65,   real:btc65/defl,   key:null,   contrib:null },
+    { name:"India property (sell)", growth:"2.5% / 0% real", now:300000, at65:india65, real:india65/defl, key:null,   contrib:null },
+    { name:"Woodstock 1/3 (sell)",  growth:"2.5% / 0% real", now:216667, at65:wood65,  real:wood65/defl,  key:null,   contrib:null },
+  ];
+
+  container.innerHTML = `
+    <div style="padding:10px 16px;border-bottom:1px solid rgba(0,0,0,0.08);background:#fafaf8;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:11px;color:#aaa;">All figures in today's purchasing power · 2.5% inflation · 25 years</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span id="rp-saved" style="font-size:12px;color:#2a6e1e;opacity:0;transition:opacity 0.3s;">✓ Saved</span>
+        <span style="font-size:11px;color:#aaa;">· Edits auto-save</span>
+      </div>
+    </div>
+
+    <!-- ① MONTHLY EXPENSES AT 65 -->
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:baseline;">
+        <span style="font-size:14px;font-weight:600;color:#0d0d0b;">① Monthly Expenses at 65</span>
+        <span style="font-size:11px;color:#888;">edit amounts — drives the entire plan</span>
+      </div>
+      <div style="margin:0 16px 16px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;background:#fafaf8;padding:8px 14px;border-bottom:1px solid rgba(0,0,0,0.08);">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;">Category</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;text-align:center;">Note</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#1a5280;text-align:right;">Monthly</span>
+        </div>
+        ${(window.retExpenses||(window.retExpenses=[
+          {cat:"Housing",                       note:"prop tax $982 + utilities $250 + insurance $150", amt:1382},
+          {cat:"Food & Groceries",              note:"2 people, no kids",                               amt:800 },
+          {cat:"Auto",                          note:"insurance + gas, less driving",                   amt:500 },
+          {cat:"Health & Medical",              note:"prescriptions, dental, vision",                   amt:300 },
+          {cat:"Travel & Leisure",              note:"trips, dining out, hobbies",                      amt:800 },
+          {cat:"Subscriptions & Entertainment", note:"streaming, memberships",                          amt:200 },
+          {cat:"Personal Care",                 note:"grooming, clothing",                              amt:200 },
+          {cat:"Gifts & Family",                note:"kids, grandkids, occasions",                      amt:300 },
+        ])).map((row,idx)=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:8px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
+            onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+            <span style="font-size:13px;color:#333;">${row.cat}</span>
+            <span style="font-size:11px;color:#aaa;text-align:center;">${row.note}</span>
+            <div style="text-align:right;"><input type="number" value="${row.amt}"
+              onchange="window.retExpenses[${idx}].amt=parseFloat(this.value)||0; renderRpSection(); saveRpData();"
+              onfocus="this.select()"
+              style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;"></div>
+          </div>`).join('')}
+        <div style="padding:10px 14px;background:#f4f3ef;border-top:1px solid rgba(0,0,0,0.1);">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total monthly expenses</span>
+            <span style="font-size:14px;font-weight:700;color:#0d0d0b;font-family:'DM Serif Display',serif;">${fmt(retTotal)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:12px;color:#2a6e1e;">CPP + OAS (guaranteed, indexed)</span>
+            <span style="font-size:12px;font-weight:600;color:#2a6e1e;">− $3,500</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:0.5px solid rgba(0,0,0,0.15);">
+            <span style="font-size:13px;font-weight:600;color:#1a5280;">Needed from your portfolio</span>
+            <span style="font-size:14px;font-weight:700;color:#1a5280;font-family:'DM Serif Display',serif;">${fmt(fromPort/12)}/mo</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② PORTFOLIO AT 65 -->
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:baseline;">
+        <span style="font-size:14px;font-weight:600;color:#0d0d0b;">② Portfolio at 65</span>
+        <span style="font-size:11px;color:#1a5280;font-weight:500;">✎ Edit monthly contributions</span>
+      </div>
+      <div style="margin:0 16px 16px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
+        <div class="rp-portfolio-row" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;background:#fafaf8;padding:8px 12px;border-bottom:1px solid rgba(0,0,0,0.08);">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;">Asset</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;text-align:center;">Growth</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#1a5280;text-align:right;">Monthly contr.</span>
+          <span class="rp-col-nominal" style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#555;text-align:right;">At 65 (nominal)</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#2a6e1e;text-align:right;">Today's $</span>
+        </div>
+        ${tableRows.map(row=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:8px 12px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
+            onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'" class="rp-portfolio-row">
+            <span style="font-size:13px;color:#333;">${row.name}</span>
+            <span class="rp-col-growth" style="font-size:11px;color:#888;text-align:center;">${row.growth}</span>
+            <div style="text-align:right;">${row.key ? inp(row.key,row.contrib) : '<span style="font-size:12px;color:#ccc;">—</span>'}</div>
+            <span class="rp-col-nominal" style="font-size:13px;font-weight:600;color:#555;text-align:right;font-variant-numeric:tabular-nums;">${fmt(row.at65)}</span>
+            <span style="font-size:13px;font-weight:600;color:#2a6e1e;text-align:right;font-variant-numeric:tabular-nums;">${fmt(row.real)}</span>
+          </div>`).join('')}
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:9px 12px;background:#f4f3ef;border-top:1px solid rgba(0,0,0,0.1);">
+          <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total liquid</span><span></span>
+          <span style="font-size:12px;font-weight:600;color:#1a5280;text-align:right;">${fmtM(contrib.rrsp+contrib.tfsa+contrib.rpp)}</span>
+          <span style="font-size:13px;font-weight:700;color:#555;text-align:right;">${fmt(liquid)}</span>
+          <span style="font-size:13px;font-weight:700;color:#2a6e1e;text-align:right;">${fmt(liqReal)}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:8px 12px;background:#f8f7f4;">
+          <span style="font-size:12px;color:#888;">Primary home (kept)</span>
+          <span style="font-size:11px;color:#888;text-align:center;">2.5% / 0% real</span><span></span>
+          <span style="font-size:12px;color:#888;text-align:right;">${fmt(prim65)}</span>
+          <span style="font-size:12px;color:#888;text-align:right;">${fmt(primReal)}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ③ RETIREMENT READINESS -->
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:14px 16px 6px;">
+        <span style="font-size:14px;font-weight:600;color:#0d0d0b;">③ Retirement Readiness</span>
+        <span style="font-size:11px;color:#888;margin-left:8px;">auto-calculated from ① and ②</span>
+      </div>
+      <div style="padding:0 16px 16px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+          <div style="background:#f0f7ee;border:1px solid rgba(42,110,30,0.2);border-radius:10px;padding:14px 16px;">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#2a6e1e;margin-bottom:6px;">Liquid portfolio at 65</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.6rem;color:#2a6e1e;">${fmt(liqReal)}</div>
+            <div style="font-size:11px;color:#6a9e6a;margin-top:4px;">in today's dollars</div>
+          </div>
+          <div style="background:#eef4fa;border:1px solid rgba(26,82,128,0.2);border-radius:10px;padding:14px 16px;">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#1a5280;margin-bottom:6px;">Portfolio needed (4% rule)</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.6rem;color:#1a5280;">${fmt(needed4pct)}</div>
+            <div style="font-size:11px;color:#6a82ae;margin-top:4px;">to fund ${fmt(Math.round(fromPort/12))}/mo from portfolio</div>
+          </div>
+          <div style="background:${surplus>0?'#f0f7ee':'#fff8f8'};border:1px solid ${surplus>0?'rgba(42,110,30,0.2)':'rgba(160,32,32,0.2)'};border-radius:10px;padding:14px 16px;">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:${surplus>0?'#2a6e1e':'#a02020'};margin-bottom:6px;">${surplus>0?'Surplus':'Shortfall'}</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.6rem;color:${surplus>0?'#2a6e1e':'#a02020'};">${fmt(Math.abs(surplus))}</div>
+            <div style="font-size:11px;color:${surplus>0?'#6a9e6a':'#c06060'};margin-top:4px;">${surplus>0?'✓ On track':'↑ Increase contributions'}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ④ CPP + OAS -->
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:14px 16px 6px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:14px;font-weight:600;color:#0d0d0b;">④ CPP + OAS</span>
+        <span style="font-size:11px;color:#2a6e1e;font-weight:500;">● Both fully indexed to inflation forever</span>
+      </div>
+      <div style="margin:0 16px 16px;background:#f8fff8;border:1px solid rgba(42,110,30,0.12);border-radius:8px;overflow:hidden;">
+        ${[["CPP — Manny","$1,200/mo","Verify at My Service Canada Account"],
+           ["CPP — Rani","$900/mo","Verify at My Service Canada Account"],
+           ["OAS — Manny","$700/mo","Eligible at 65"],
+           ["OAS — Rani","$700/mo","Eligible at 65"]]
+          .map(([n,v,note])=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);">
+            <div><span style="font-size:13px;color:#333;">${n}</span><span style="font-size:11px;color:#aaa;margin-left:8px;">${note}</span></div>
+            <span style="font-size:13px;font-weight:600;color:#2a6e1e;">${v}</span>
+          </div>`).join('')}
+        <div style="display:flex;justify-content:space-between;padding:10px 14px;background:rgba(42,110,30,0.06);border-top:1px solid rgba(42,110,30,0.1);">
+          <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total government income</span>
+          <span style="font-size:14px;font-weight:700;color:#2a6e1e;font-family:'DM Serif Display',serif;">$3,500/mo · same real value always</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑤ RESP -->
+    <div>
+      <div style="padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:baseline;">
+        <span style="font-size:14px;font-weight:600;color:#0d0d0b;">⑤ RESP — Education Fund</span>
+        <span style="font-size:11px;color:#888;">5% growth · 2.5% inflation · $30K/yr today</span>
+      </div>
+      <div style="margin:0 16px 20px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
+        <div style="display:grid;grid-template-columns:2fr 1fr;background:#fafaf8;padding:8px 14px;border-bottom:1px solid rgba(0,0,0,0.08);">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;">Item</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#1a5280;text-align:right;">Amount</span>
+        </div>
+        ${[["RESP balance today",fmt(respNow),""],
+           ["Monthly contribution","","resp"],
+           ["Annual CESG (govt 20% match)","$1,000/yr","on $2,500/child — 2 kids"],
+           ["Total going in annually",fmt(respAnnual),"contributions + CESG"],
+        ].map(([label,val,note])=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr;padding:7px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
+            onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+            <div><span style="font-size:13px;color:#333;">${label}</span>${note&&note!=="resp"?`<span style="font-size:11px;color:#aaa;margin-left:6px;">${note}</span>`:''}</div>
+            ${val===""&&note==="resp"
+              ?`<div style="text-align:right;"><input type="number" value="${contrib.resp}" onchange="window.rpContrib['resp']=parseFloat(this.value)||0; renderRpSection(); saveRpData();" onfocus="this.select()" style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;"></div>`
+              :`<span style="font-size:13px;font-weight:600;color:#1a5280;text-align:right;">${val}</span>`}
+          </div>`).join('')}
+        <div style="padding:8px 14px;background:rgba(26,82,128,0.04);border-top:1px solid rgba(0,0,0,0.06);border-bottom:0.5px solid rgba(0,0,0,0.05);">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#1a5280;">Noor — University 2038–2042</span>
+        </div>
+        ${[["RESP at Noor's start (2038)",fmt(respNoor),"12 years of growth"],
+           ["Annual cost (2038 dollars)",fmt(Math.round(cn/4)),"$30K/yr today inflated at 2.5%"],
+           ["Total 4-year cost",fmt(cn),"2038–2042"],
+           ["Remaining after Noor",fmt(rem),"available for Veer"],
+        ].map(([label,val,note])=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr;padding:7px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
+            onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+            <div><span style="font-size:13px;color:#333;">${label}</span><span style="font-size:11px;color:#aaa;margin-left:6px;">${note}</span></div>
+            <span style="font-size:13px;font-weight:600;color:#1a5280;text-align:right;">${val}</span>
+          </div>`).join('')}
+        <div style="padding:8px 14px;background:rgba(106,158,106,0.08);border-top:1px solid rgba(0,0,0,0.06);border-bottom:0.5px solid rgba(0,0,0,0.05);">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#2a6e1e;">Veer — University 2040–2044</span>
+        </div>
+        ${[["RESP at Veer's start (2040)",fmt(respVeer),"remaining + 2 more yrs contributions"],
+           ["Annual cost (2040 dollars)",fmt(Math.round(cv/4)),"$30K/yr today inflated at 2.5%"],
+           ["Total 4-year cost",fmt(cv),"2040–2044"],
+        ].map(([label,val,note])=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr;padding:7px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
+            onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+            <div><span style="font-size:13px;color:#333;">${label}</span><span style="font-size:11px;color:#aaa;margin-left:6px;">${note}</span></div>
+            <span style="font-size:13px;font-weight:600;color:#1a5280;text-align:right;">${val}</span>
+          </div>`).join('')}
+        <div style="padding:12px 14px;background:${veerGap>0?'#fff8f8':'#f0f7ee'};border-top:1px solid rgba(0,0,0,0.08);">
+          ${veerGap>0
+            ?`<div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div style="font-size:13px;font-weight:600;color:#a02020;">Veer funding gap: ${fmt(veerGap)}</div>
+                  <div style="font-size:11px;color:#c06060;margin-top:2px;">Add $${topUp}/mo to RESP now · or fund from cash flow (you'll be 54 in 2040)</div>
+                </div><span style="font-size:20px;">⚠️</span></div>`
+            :`<div style="font-size:13px;font-weight:600;color:#2a6e1e;">✓ Both kids fully funded for university</div>`}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+window.lockRp = () => { rpUnlocked = false; renderRpSection(); };
+
+function injectPrivatePanel() {
+  // Remove old separate panels if they exist
+  ['fs-wrapper','rp-wrapper'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  });
+
+  if (document.getElementById('private-wrapper')) {
+    renderPrivatePanel();
+    return;
+  }
+
+  const appEl = document.getElementById("app");
+  if (!appEl) return;
+
+  const wrapper = document.createElement("div");
+  wrapper.id = "private-wrapper";
+  wrapper.style.cssText = "margin-top:32px;";
+  wrapper.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#0d0d0b;">Private</div>
+      <div style="font-size:10px;background:rgba(26,82,128,0.1);color:#1a5280;padding:3px 8px;border-radius:10px;font-weight:600;letter-spacing:0.04em;">🔒 PRIVATE</div>
+    </div>
+    <div id="private-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;"></div>
+  `;
+  appEl.appendChild(wrapper);
+  renderPrivatePanel();
+}
+
+let privateUnlocked = false;
+let privateTab = 'summary'; // 'summary' or 'retirement'
+
+function renderPrivatePanel() {
+  const container = document.getElementById("private-container");
+  if (!container) return;
+
+  if (!privateUnlocked) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:40px 20px;">
+        <div style="font-size:36px;margin-bottom:12px;">🔒</div>
+        <div style="font-size:15px;font-weight:600;color:#0d0d0b;margin-bottom:6px;">Financial Summary & Retirement Plan</div>
+        <div style="font-size:12px;color:#888;margin-bottom:20px;">Enter password to view</div>
+        <div style="display:flex;gap:8px;justify-content:center;">
+          <input id="priv-pw-input" type="password" placeholder="Password"
+            style="border:1px solid rgba(0,0,0,0.15);border-radius:8px;padding:8px 14px;font-size:13px;font-family:inherit;outline:none;width:160px;"
+            onkeydown="if(event.key==='Enter') checkPrivatePassword()">
+          <button onclick="checkPrivatePassword()"
+            style="background:#0d0d0b;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-family:inherit;cursor:pointer;">
+            Unlock
+          </button>
+        </div>
+        <div id="priv-pw-error" style="font-size:12px;color:#c0392b;margin-top:10px;opacity:0;transition:opacity 0.3s;">Incorrect password</div>
+      </div>`;
+    return;
+  }
+
+  // Tab bar + content
+  container.innerHTML = `
+    <!-- TAB BAR -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid rgba(0,0,0,0.09);background:#fafaf8;">
+      <div style="display:flex;gap:4px;">
+        <button onclick="switchPrivateTab('summary')" id="tab-btn-summary"
+          style="font-family:inherit;font-size:13px;font-weight:600;padding:12px 18px;border:none;cursor:pointer;border-bottom:2px solid ${privateTab==='summary'?'#1a5280':'transparent'};background:transparent;color:${privateTab==='summary'?'#1a5280':'#888'};transition:all 0.15s;">
+          📊 Financial Summary
+        </button>
+        <button onclick="switchPrivateTab('retirement')" id="tab-btn-retirement"
+          style="font-family:inherit;font-size:13px;font-weight:600;padding:12px 18px;border:none;cursor:pointer;border-bottom:2px solid ${privateTab==='retirement'?'#2a6e1e':'transparent'};background:transparent;color:${privateTab==='retirement'?'#2a6e1e':'#888'};transition:all 0.15s;">
+          🌿 Retirement Plan
+        </button>
+      </div>
+      <button onclick="lockPrivate()" style="font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#888;">🔒 Lock</button>
+    </div>
+    <!-- TAB CONTENT -->
+    <div id="private-tab-content"></div>
+  `;
+
+  renderPrivateTabContent();
+}
+
+function renderPrivateTabContent() {
+  const el = document.getElementById("private-tab-content");
+  if (!el) return;
+
+  if (privateTab === 'summary') {
+    // Temporarily use fs-container trick — render FS into a div
+    el.innerHTML = '<div id="fs-container-inner"></div>';
+    const inner = document.getElementById("fs-container-inner");
+    if (inner) {
+      // Borrow renderFsSection logic but target inner
+      const oldContainer = document.getElementById("fs-container");
+      // Patch: temporarily point fs-container to our inner div
+      inner.id = "fs-container";
+      renderFsSection();
+      inner.id = "fs-container-inner";
+    }
+  } else {
+    el.innerHTML = '<div id="rp-container-inner"></div>';
+    const inner = document.getElementById("rp-container-inner");
+    if (inner) {
+      inner.id = "rp-container";
+      renderRpSection();
+      inner.id = "rp-container-inner";
+    }
+  }
+}
+
+window.switchPrivateTab = (tab) => {
+  privateTab = tab;
+  // Update tab buttons
+  const sBorder = tab==='summary' ? '#1a5280' : 'transparent';
+  const rBorder = tab==='retirement' ? '#2a6e1e' : 'transparent';
+  const sColor  = tab==='summary' ? '#1a5280' : '#888';
+  const rColor  = tab==='retirement' ? '#2a6e1e' : '#888';
+  const sb = document.getElementById("tab-btn-summary");
+  const rb = document.getElementById("tab-btn-retirement");
+  if (sb) { sb.style.borderBottomColor = sBorder; sb.style.color = sColor; }
+  if (rb) { rb.style.borderBottomColor = rBorder; rb.style.color = rColor; }
+  renderPrivateTabContent();
+};
+
+window.checkPrivatePassword = () => {
+  const input = document.getElementById("priv-pw-input");
+  const pwd = "ajax123";
+  if (input && input.value === pwd) {
+    privateUnlocked = true;
+    fsUnlocked = true;
+    rpUnlocked = true;
+    Promise.all([loadFsData(), loadRpData()]).then(() => renderPrivatePanel());
+  } else {
+    const err = document.getElementById("priv-pw-error");
+    if (err) { err.style.opacity = 1; setTimeout(() => err.style.opacity = 0, 2000); }
+    if (input) { input.value = ""; input.focus(); }
+  }
+};
+
+window.lockPrivate = () => {
+  privateUnlocked = false;
+  fsUnlocked = false;
+  rpUnlocked = false;
+  fsEditMode = false;
+  renderPrivatePanel();
+};
+
+// Keep old functions working (called inside renderFsSection / renderRpSection)
+window.lockFs = window.lockPrivate;
+window.lockRp = window.lockPrivate;
+
+// Redirect old inject functions to new combined one
+function injectFsPanel() { injectPrivatePanel(); }
+function injectRpPanel() { injectPrivatePanel(); }
+
+
+</script>
+</body>
+</html>
