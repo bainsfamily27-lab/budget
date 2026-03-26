@@ -435,29 +435,15 @@ function buildChart() {
 
 // --- Actions ---
 let budgetEditUnlocked = false;
-
 window.toggleEdit = () => {
   if (!editMode) {
-    // Turning ON edit mode — require password
-    if (budgetEditUnlocked) {
-      editMode = true;
-      render();
-    } else {
+    if (budgetEditUnlocked) { editMode = true; render(); }
+    else {
       const pwd = prompt("Enter password to edit:");
-      if (pwd === "ajax123") {
-        budgetEditUnlocked = true;
-        editMode = true;
-        render();
-      } else if (pwd !== null) {
-        alert("Incorrect password");
-      }
+      if (pwd === "ajax123") { budgetEditUnlocked = true; editMode = true; render(); }
+      else if (pwd !== null) alert("Incorrect password");
     }
-  } else {
-    // Turning OFF edit mode — no password needed
-    editMode = false;
-    budgetEditUnlocked = false;
-    render();
-  }
+  } else { editMode = false; budgetEditUnlocked = false; render(); }
 };
 
 window.toggleSection = (key) => {
@@ -516,6 +502,7 @@ function refreshTotals(key) {
 
   // Rebuild chart
   buildChart();
+  updateUSD();
 }
 
 // --- USD Rate ---
@@ -545,7 +532,7 @@ function updateUSD() {
 // Render immediately on page load
 window.addEventListener('DOMContentLoaded', function() {
   try { render(); } catch(e) { console.error("render failed:", e); }
-
+  try { fetchUSD(); } catch(e) {}
   setTimeout(function() {
     try { injectPrivatePanel(); } catch(e) { console.error("injectPrivatePanel failed:", e); }
   }, 200);
@@ -615,38 +602,40 @@ const FS_DEFAULTS = {
 
 let fsData = JSON.parse(JSON.stringify(FS_DEFAULTS));
 
-// ── REFRESH RETIREMENT IF VISIBLE ────────────────────────
-let rpNeedsRefresh = false;
-
-function refreshRetirementIfVisible() {
-  const rpContainer = document.getElementById("rp-container");
-  if (rpContainer) {
-    // Retirement tab is open — re-render it now with fresh fsData
-    renderRpSection();
-  } else {
-    // Retirement tab not open — flag it to re-render when opened
-    rpNeedsRefresh = true;
-  }
+// ── GLOBAL EDIT PASSWORD ──────────────────────────────────
+let siteEditUnlocked = false;
+function requireEditPassword(cb) {
+  if (siteEditUnlocked) { cb(); return; }
+  const pwd = prompt("Enter password to edit:");
+  if (pwd === "ajax123") { siteEditUnlocked = true; cb(); }
+  else if (pwd !== null) alert("Incorrect password");
 }
 
-// ── EXTRACT RETIREMENT BALANCES FROM FINANCIAL SUMMARY ───
+// ── REFRESH RETIREMENT ────────────────────────────────────
+let rpNeedsRefresh = false;
+function refreshRetirementIfVisible() {
+  const c = document.getElementById("rp-container");
+  if (c) renderRpSection();
+  else rpNeedsRefresh = true;
+}
+
+// ── EXTRACT BALANCES FROM FINANCIAL SUMMARY ──────────────
 function getRpBalances() {
-  const ret = fsData.investments.retirement.items;
+  const ret    = fsData.investments.retirement.items;
   const others = fsData.investments.others.items;
-  const getAmt = (items, nameParts) => {
-    const item = items.find(i => nameParts.some(p => i.name.toUpperCase().includes(p.toUpperCase())));
-    return item ? (parseFloat(item.amount)||0) : 0;
+  const getAmt = (items, names) => {
+    const it = items.find(i => names.some(n => i.name.toUpperCase().includes(n.toUpperCase())));
+    return it ? (parseFloat(it.amount)||0) : null;
   };
-  const rrsp  = getAmt(ret, ['RRSP','RSP']);
-  const tfsa  = getAmt(ret, ['TFSA']);
-  const rpp   = getAmt(ret, ['RPP']);
-  const btc   = getAmt(ret, ['BTC']);
-  const india = getAmt(others, ['India']);
-  // Woodstock from real estate
-  const wood  = fsData.real_estate.woodstock ? fsData.real_estate.woodstock.value : 216667;
-  // RESP from kids
-  const resp  = fsData.investments.kids.items[0] ? (parseFloat(fsData.investments.kids.items[0].amount)||0) : 39837;
-  return { rrsp, tfsa, rpp, btc, india, wood, resp };
+  return {
+    rrsp:  getAmt(ret,    ['RRSP','RSP']),
+    tfsa:  getAmt(ret,    ['TFSA']),
+    rpp:   getAmt(ret,    ['RPP']),
+    btc:   getAmt(ret,    ['BTC']),
+    india: getAmt(others, ['India']),
+    wood:  fsData.real_estate.woodstock ? parseFloat(fsData.real_estate.woodstock.value)||0 : null,
+    resp:  fsData.investments.kids.items[0] ? parseFloat(fsData.investments.kids.items[0].amount)||0 : null,
+  };
 }
 let fsUnlocked = false;
 let fsEditMode = false;
@@ -753,12 +742,12 @@ function renderFsSection() {
       const nameEl = fsEditMode
         ? `<input type="text" value="${item.name.replace(/"/g,'&quot;')}" onchange="updateFsInv('${catKey}',${idx},'name',this.value)"
              style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-family:inherit;color:#0d0d0b;outline:none;flex:1;min-width:0;padding:1px 0;">`
-        : `<span style="font-size:13px;color:#444;">${item.name}</span>`;
+        : `<span style="font-size:12px;color:#888;">${item.name}</span>`;
       const amtEl = fsEditMode
         ? `<input type="number" value="${item.amount}" onchange="updateFsInv('${catKey}',${idx},'amount',this.value)" onfocus="this.select()"
-             style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;font-family:inherit;color:#1a5280;width:100px;text-align:right;outline:none;padding:1px 0;">`
-        : `<span style="font-size:13px;font-weight:600;color:#1a5280;font-variant-numeric:tabular-nums;">${fsFmt(item.amount)}</span>`;
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 16px 6px 32px;transition:background 0.1s;"
+             style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:12px;font-weight:500;font-family:inherit;color:#7a95be;width:100px;text-align:right;outline:none;padding:1px 0;">`
+        : `<span style="font-size:12px;color:#7a95be;font-variant-numeric:tabular-nums;">${fsFmt(item.amount)}</span>`;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 16px 3px 36px;"
                 onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
                 ${nameEl}
                 <div style="margin-left:12px;flex-shrink:0;">${amtEl}</div>
@@ -815,11 +804,11 @@ function renderFsSection() {
     const nameEl = fsEditMode
       ? `<input type="text" value="${item.name.replace(/"/g,'&quot;')}" onchange="updateFsLib(${idx},'name',this.value)"
            style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-family:inherit;color:#0d0d0b;outline:none;flex:1;min-width:0;padding:1px 0;">`
-      : `<span style="font-size:13px;color:#444;">${item.name}</span>`;
+      : `<span style="font-size:12px;color:#666;">${item.name}</span>`;
     const amtEl = fsEditMode
       ? `<input type="number" value="${item.amount}" onchange="updateFsLib(${idx},'amount',this.value)" onfocus="this.select()"
            style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;font-family:inherit;color:#a02020;width:100px;text-align:right;outline:none;padding:1px 0;">`
-      : `<span style="font-size:13px;font-weight:600;color:#a02020;font-variant-numeric:tabular-nums;">${fsFmt(item.amount)}</span>`;
+      : `<span style="font-size:12px;color:#a02020;font-variant-numeric:tabular-nums;">${fsFmt(item.amount)}</span>`;
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 16px 6px 32px;transition:background 0.1s;"
               onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
               ${nameEl}
@@ -949,12 +938,12 @@ window.toggleFsEdit = () => { fsEditMode = !fsEditMode; renderFsSection(); };
 window.updateFsInv = (catKey, idx, field, val) => {
   if (field === "amount") fsData.investments[catKey].items[idx].amount = parseFloat(val)||0;
   else fsData.investments[catKey].items[idx].name = val.trim() || fsData.investments[catKey].items[idx].name;
-  saveFsData(); renderFsSection(); refreshRetirementIfVisible();
+  saveFsData(); renderFsSection();
 };
 
 window.updateFsRe = (key, field, val) => {
   fsData.real_estate[key][field] = parseFloat(val)||0;
-  saveFsData(); renderFsSection(); refreshRetirementIfVisible();
+  saveFsData(); renderFsSection();
 };
 
 window.updateFsLib = (idx, field, val) => {
@@ -966,7 +955,7 @@ window.updateFsLib = (idx, field, val) => {
   } else {
     fsData.liabilities.mortgages.items[idx].name = val.trim() || fsData.liabilities.mortgages.items[idx].name;
   }
-  saveFsData(); renderFsSection(); refreshRetirementIfVisible();
+  saveFsData(); renderFsSection();
 };
 
 window.addFsInvItem = (catKey) => {
@@ -993,27 +982,18 @@ function renderRpSection() {
   const contrib = window.rpContrib || { rrsp:1250, tfsa:1208, rpp:500, resp:580 };
   window.rpContrib = contrib;
 
-  const bal = getRpBalances();
-  const rrspNow = (bal.rrsp  != null) ? bal.rrsp  : 70252;
-  const tfsaNow = (bal.tfsa  != null) ? bal.tfsa  : 6735;
-  const rppNow  = (bal.rpp   != null) ? bal.rpp   : 25979;
-  const btcNow  = (bal.btc   != null) ? bal.btc   : 12000;
-  const indiaNow= (bal.india != null) ? bal.india : 300000;
-  const woodNow = (bal.wood  != null) ? bal.wood  : 216667;
-  const respNowVal = (bal.resp != null) ? bal.resp : 39837;
-
-  const rrsp65  = fv(rrspNow, contrib.rrsp*12, r, yrs);
-  const tfsa65  = fv(tfsaNow, contrib.tfsa*12, r, yrs);
-  const rpp65   = fv(rppNow,  contrib.rpp*12,  r, yrs);
-  const btc65   = btcNow   * Math.pow(1+btcR, yrs);
-  const india65 = indiaNow * Math.pow(1+re, yrs);
-  const wood65  = woodNow  * Math.pow(1+re, yrs);
+  const rrsp65  = fv(70252,  contrib.rrsp*12, r, yrs);
+  const tfsa65  = fv(6735,   contrib.tfsa*12, r, yrs);
+  const rpp65   = fv(25979,  contrib.rpp*12,  r, yrs);
+  const btc65   = 12000  * Math.pow(1+btcR, yrs);
+  const india65 = 300000 * Math.pow(1+re, yrs);
+  const wood65  = (650000/3) * Math.pow(1+re, yrs);
   const prim65  = 1200000 * Math.pow(1+re, yrs);
   const liquid  = rrsp65+tfsa65+rpp65+btc65+india65+wood65;
   const liqReal = liquid/defl;
   const primReal= prim65/defl;
 
-  const respNow= respNowVal, nyr=12, vyr=14;
+  const respNow=39837, nyr=12, vyr=14;
   const cesg=1000, respAnnual=contrib.resp*12+cesg;
   const respNoor = fv(respNow, respAnnual, r, nyr);
   const cn = 120000*Math.pow(1+inf,nyr);
@@ -1024,7 +1004,7 @@ function renderRpSection() {
   const topUp = veerGap>0 ? Math.round(veerGap*(r/12)/(Math.pow(1+r/12,vyr*12)-1)) : 0;
 
   const govtMo = 3500;
-  const retTotal = (window.retExpenses && window.retExpenses.length > 0) ? (window.retExpenses.reduce((s,r)=>s+(parseFloat(r.amt)||0),0)) : 4482;
+  const retTotal = (window.retExpenses||[]).reduce((s,r)=>s+(parseFloat(r.amt)||0),0) || 4482;
   const fromPort = Math.max(0, retTotal-govtMo)*12;
   const needed4pct = fromPort/0.04;
   const surplus = liqReal - needed4pct;
@@ -1035,12 +1015,12 @@ function renderRpSection() {
     style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;">`;
 
   const tableRows = [
-    { name:"RRSP (US equities)",    growth:"5% / 2.5% real", now:70252,  at65:rrsp65,  real:rrsp65/defl,  key:"rrsp", contrib:contrib.rrsp, id:"row-rrsp"   },
-    { name:"TFSA — XEQT",           growth:"5% / 2.5% real", now:6735,   at65:tfsa65,  real:tfsa65/defl,  key:"tfsa", contrib:contrib.tfsa, id:"row-tfsa"   },
-    { name:"RPP — Rani pension",    growth:"5% / 2.5% real", now:25979,  at65:rpp65,   real:rpp65/defl,   key:"rpp",  contrib:contrib.rpp,  id:"row-rpp"    },
-    { name:"BTC (hold only)",       growth:"8% / 5.5% real", now:12000,  at65:btc65,   real:btc65/defl,   key:null,   contrib:null,         id:"row-btc"    },
-    { name:"India property (sell)", growth:"2.5% / 0% real", now:300000, at65:india65, real:india65/defl, key:null,   contrib:null,         id:"row-india"  },
-    { name:"Woodstock 1/3 (sell)",  growth:"2.5% / 0% real", now:216667, at65:wood65,  real:wood65/defl,  key:null,   contrib:null,         id:"row-wood"   },
+    { name:"RRSP (US equities)",    growth:"5% / 2.5% real", now:70252,  at65:rrsp65,  real:rrsp65/defl,  key:"rrsp", contrib:contrib.rrsp },
+    { name:"TFSA — XEQT",           growth:"5% / 2.5% real", now:6735,   at65:tfsa65,  real:tfsa65/defl,  key:"tfsa", contrib:contrib.tfsa },
+    { name:"RPP — Rani pension",    growth:"5% / 2.5% real", now:25979,  at65:rpp65,   real:rpp65/defl,   key:"rpp",  contrib:contrib.rpp  },
+    { name:"BTC (hold only)",       growth:"8% / 5.5% real", now:12000,  at65:btc65,   real:btc65/defl,   key:null,   contrib:null },
+    { name:"India property (sell)", growth:"2.5% / 0% real", now:300000, at65:india65, real:india65/defl, key:null,   contrib:null },
+    { name:"Woodstock 1/3 (sell)",  growth:"2.5% / 0% real", now:216667, at65:wood65,  real:wood65/defl,  key:null,   contrib:null },
   ];
 
   container.innerHTML = `
@@ -1079,14 +1059,14 @@ function renderRpSection() {
             <span style="font-size:13px;color:#333;">${row.cat}</span>
             <span style="font-size:11px;color:#aaa;text-align:center;">${row.note}</span>
             <div style="text-align:right;"><input type="number" value="${row.amt}"
-              onchange="if(window.retExpenses && window.retExpenses[${idx}]) { window.retExpenses[${idx}].amt=parseFloat(this.value)||0; } updateRetTotals(); saveRpData();"
+              onchange="window.retExpenses[${idx}].amt=parseFloat(this.value)||0; renderRpSection(); saveRpData();"
               onfocus="this.select()"
               style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;"></div>
           </div>`).join('')}
         <div style="padding:10px 14px;background:#f4f3ef;border-top:1px solid rgba(0,0,0,0.1);">
           <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
             <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total monthly expenses</span>
-            <span id="ret-total-display" style="font-size:14px;font-weight:700;color:#0d0d0b;font-family:'DM Serif Display',serif;">${fmt(retTotal)}/mo</span>
+            <span style="font-size:14px;font-weight:700;color:#0d0d0b;font-family:'DM Serif Display',serif;">${fmt(retTotal)}</span>
           </div>
           <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
             <span style="font-size:12px;color:#2a6e1e;">CPP + OAS (guaranteed, indexed)</span>
@@ -1094,7 +1074,7 @@ function renderRpSection() {
           </div>
           <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:0.5px solid rgba(0,0,0,0.15);">
             <span style="font-size:13px;font-weight:600;color:#1a5280;">Needed from your portfolio</span>
-            <span id="ret-fromport-display" style="font-size:14px;font-weight:700;color:#1a5280;font-family:'DM Serif Display',serif;">${fmt(fromPort/12)}/mo</span>
+            <span style="font-size:14px;font-weight:700;color:#1a5280;font-family:'DM Serif Display',serif;">${fmt(fromPort/12)}/mo</span>
           </div>
         </div>
       </div>
@@ -1115,19 +1095,19 @@ function renderRpSection() {
           <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#2a6e1e;text-align:right;">Today's $</span>
         </div>
         ${tableRows.map(row=>`
-          <div id="${row.id}" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:8px 12px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:8px 12px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
             onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'" class="rp-portfolio-row">
             <span style="font-size:13px;color:#333;">${row.name}</span>
             <span class="rp-col-growth" style="font-size:11px;color:#888;text-align:center;">${row.growth}</span>
             <div style="text-align:right;">${row.key ? inp(row.key,row.contrib) : '<span style="font-size:12px;color:#ccc;">—</span>'}</div>
-            <span id="${row.id}-nom" class="rp-col-nominal" style="font-size:13px;font-weight:600;color:#555;text-align:right;font-variant-numeric:tabular-nums;">${fmt(row.at65)}</span>
-            <span id="${row.id}-real" style="font-size:13px;font-weight:600;color:#2a6e1e;text-align:right;font-variant-numeric:tabular-nums;">${fmt(row.real)}</span>
+            <span class="rp-col-nominal" style="font-size:13px;font-weight:600;color:#555;text-align:right;font-variant-numeric:tabular-nums;">${fmt(row.at65)}</span>
+            <span style="font-size:13px;font-weight:600;color:#2a6e1e;text-align:right;font-variant-numeric:tabular-nums;">${fmt(row.real)}</span>
           </div>`).join('')}
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:9px 12px;background:#f4f3ef;border-top:1px solid rgba(0,0,0,0.1);">
           <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total liquid</span><span></span>
-          <span id="tbl-total-contrib" style="font-size:12px;font-weight:600;color:#1a5280;text-align:right;">${fmtM(contrib.rrsp+contrib.tfsa+contrib.rpp)}</span>
-          <span id="tbl-total-nom" style="font-size:13px;font-weight:700;color:#555;text-align:right;">${fmt(liquid)}</span>
-          <span id="tbl-total-real" style="font-size:13px;font-weight:700;color:#2a6e1e;text-align:right;">${fmt(liqReal)}</span>
+          <span style="font-size:12px;font-weight:600;color:#1a5280;text-align:right;">${fmtM(contrib.rrsp+contrib.tfsa+contrib.rpp)}</span>
+          <span style="font-size:13px;font-weight:700;color:#555;text-align:right;">${fmt(liquid)}</span>
+          <span style="font-size:13px;font-weight:700;color:#2a6e1e;text-align:right;">${fmt(liqReal)}</span>
         </div>
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;padding:8px 12px;background:#f8f7f4;">
           <span style="font-size:12px;color:#888;">Primary home (kept)</span>
@@ -1144,95 +1124,22 @@ function renderRpSection() {
         <span style="font-size:14px;font-weight:600;color:#0d0d0b;">③ Retirement Readiness</span>
         <span style="font-size:11px;color:#888;margin-left:8px;">auto-calculated from ① and ②</span>
       </div>
-
-      <!-- FULL MATH BREAKDOWN -->
-      <div style="margin:0 16px 12px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
-
-        <!-- Step 1: Income needed -->
-        <div style="padding:10px 14px;background:#fafaf8;border-bottom:1px solid rgba(0,0,0,0.06);">
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:8px;">Step 1 — Monthly Income Needed</div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-            <span style="font-size:13px;color:#333;">Your retirement expenses (from ①)</span>
-            <span style="font-size:13px;font-weight:600;color:#0d0d0b;" id="s1-total">${fmt(retTotal)}/mo</span>
+      <div style="padding:0 16px 16px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+          <div style="background:#f0f7ee;border:1px solid rgba(42,110,30,0.2);border-radius:10px;padding:14px 16px;">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#2a6e1e;margin-bottom:6px;">Liquid portfolio at 65</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.6rem;color:#2a6e1e;">${fmt(liqReal)}</div>
+            <div style="font-size:11px;color:#6a9e6a;margin-top:4px;">in today's dollars</div>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-            <span style="font-size:13px;color:#2a6e1e;">CPP + OAS (guaranteed, indexed)</span>
-            <span style="font-size:13px;font-weight:600;color:#2a6e1e;">− $3,500/mo</span>
+          <div style="background:#eef4fa;border:1px solid rgba(26,82,128,0.2);border-radius:10px;padding:14px 16px;">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#1a5280;margin-bottom:6px;">Portfolio needed (4% rule)</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.6rem;color:#1a5280;">${fmt(needed4pct)}</div>
+            <div style="font-size:11px;color:#6a82ae;margin-top:4px;">to fund ${fmt(Math.round(fromPort/12))}/mo from portfolio</div>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid rgba(0,0,0,0.08);">
-            <span style="font-size:13px;font-weight:600;color:#1a5280;">Gap to fill from portfolio</span>
-            <span style="font-size:14px;font-weight:700;color:#1a5280;" id="s1-fromport">${fmt(Math.max(0,fromPort/12))}/mo = ${fmt(Math.max(0,fromPort))}/yr</span>
-          </div>
-        </div>
-
-        <!-- Step 2: Portfolio needed -->
-        <div style="padding:10px 14px;background:#fff;border-bottom:1px solid rgba(0,0,0,0.06);">
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:8px;">Step 2 — Portfolio Required (4% Rule)</div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-            <span style="font-size:13px;color:#333;">Annual gap ÷ 4%</span>
-            <span style="font-size:12px;color:#888;" id="s2-calc">${fmt(Math.max(0,fromPort))} ÷ 0.04</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid rgba(0,0,0,0.08);">
-            <span style="font-size:13px;font-weight:600;color:#1a5280;">Portfolio needed at 65</span>
-            <span id="s2-needed" style="font-size:14px;font-weight:700;color:#1a5280;">${fmt(needed4pct)}</span>
-          </div>
-          <div style="font-size:11px;color:#aaa;margin-top:4px;">4% rule = safe withdrawal rate — portfolio should last 30+ years</div>
-        </div>
-
-        <!-- Step 3: What you'll have -->
-        <div style="padding:10px 14px;background:#fff;border-bottom:1px solid rgba(0,0,0,0.06);">
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bott:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:8px;">Step 3 — What You'll Have (from ②)</div>
-          <!-- Column headers -->
-          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:4px 0 6px;border-bottom:0.5px solid rgba(0,0,0,0.08);margin-bottom:6px;">
-            <span style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Asset</span>
-            <span style="font-size:10px;color:#2a6e1e;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;text-align:right;">Today's $</span>
-            <span style="font-size:10px;color:#aaa;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;text-align:right;">2051 actual</span>
-          </div>
-          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center;margin-bottom:4px;">
-            <span style="font-size:12px;color:#555;">RRSP + TFSA + RPP + BTC</span>
-            <span id="s3-registered" style="font-size:12px;font-weight:600;color:#2a6e1e;text-align:right;">${fmt((rrsp65+tfsa65+rpp65+btc65)/defl)}</span>
-            <span id="s3-registered-nom" style="font-size:11px;color:#aaa;text-align:right;">${fmt(rrsp65+tfsa65+rpp65+btc65)}</span>
-          </div>
-          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center;margin-bottom:4px;">
-            <span style="font-size:12px;color:#555;">India property</span>
-            <span id="s3-india" style="font-size:12px;font-weight:600;color:#2a6e1e;text-align:right;">${fmt(india65/defl)}</span>
-            <span id="s3-india-nom" style="font-size:11px;color:#aaa;text-align:right;">${fmt(india65)}</span>
-          </div>
-          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center;margin-bottom:4px;">
-            <span style="font-size:12px;color:#555;">Woodstock 1/3</span>
-            <span id="s3-wood" style="font-size:12px;font-weight:600;color:#2a6e1e;text-align:right;">${fmt(wood65/defl)}</span>
-            <span id="s3-wood-nom" style="font-size:11px;color:#aaa;text-align:right;">${fmt(wood65)}</span>
-          </div>
-          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center;padding-top:6px;border-top:1px solid rgba(0,0,0,0.08);">
-            <span style="font-size:13px;font-weight:600;color:#2a6e1e;">Total liquid</span>
-            <span id="s3-total" style="font-size:13px;font-weight:700;color:#2a6e1e;text-align:right;">${fmt(liqReal)}</span>
-            <span id="s3-total-nom" style="font-size:11px;color:#aaa;text-align:right;">${fmt(liquid)}</span>
-          </div>
-          <div style="font-size:10px;color:#aaa;margin-top:8px;font-style:italic;">
-            Today's $ = purchasing power in today's money &nbsp;·&nbsp; 2051 actual = what your account will show in 2051
-          </div>
-        </div>
-
-        <!-- Step 4: The verdict -->
-        <div style="padding:12px 14px;background:${surplus>0?'#f0f7ee':'#fff8f8'};">
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:${surplus>0?'#2a6e1e':'#a02020'};margin-bottom:8px;">Step 4 — The Verdict</div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-            <span style="font-size:13px;color:#555;">Portfolio you'll have</span>
-            <span id="s4-have" style="font-size:13px;font-weight:600;color:#2a6e1e;">${fmt(liqReal)}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-            <span style="font-size:13px;color:#555;">Portfolio you need</span>
-            <span id="s4-need" style="font-size:13px;font-weight:600;color:#1a5280;">− ${fmt(needed4pct)}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid ${surplus>0?'rgba(42,110,30,0.15)':'rgba(160,32,32,0.15)'};">
-            <span style="font-size:14px;font-weight:700;color:${surplus>0?'#2a6e1e':'#a02020'};">${surplus>0?'✓ Surplus — On Track':'✗ Shortfall'}</span>
-            <span id="card-surplus-val" style="font-family:'DM Serif Display',serif;font-size:1.5rem;color:${surplus>0?'#2a6e1e':'#a02020'};">${fmt(Math.abs(surplus))}</span>
-          </div>
-          <div style="font-size:11px;color:${surplus>0?'#6a9e6a':'#c06060'};margin-top:6px;">
-            ${surplus>0
-              ? `Your portfolio covers ${((liqReal/needed4pct)*100).toFixed(0)}% of what you need — ${fmt(surplus)} buffer in today's dollars`
-              : `Increase contributions or reduce retirement expenses by ${fmt(Math.abs(surplus/25/12))}/mo`
-            }
+          <div style="background:${surplus>0?'#f0f7ee':'#fff8f8'};border:1px solid ${surplus>0?'rgba(42,110,30,0.2)':'rgba(160,32,32,0.2)'};border-radius:10px;padding:14px 16px;">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:${surplus>0?'#2a6e1e':'#a02020'};margin-bottom:6px;">${surplus>0?'Surplus':'Shortfall'}</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.6rem;color:${surplus>0?'#2a6e1e':'#a02020'};">${fmt(Math.abs(surplus))}</div>
+            <div style="font-size:11px;color:${surplus>0?'#6a9e6a':'#c06060'};margin-top:4px;">${surplus>0?'✓ On track':'↑ Increase contributions'}</div>
           </div>
         </div>
       </div>
@@ -1323,113 +1230,15 @@ function renderRpSection() {
   `;
 }
 
-// Update retirement totals without full re-render (preserves input focus)
-function updateRetTotals() {
-  if (!window.retExpenses) return;
-  const govtMo = 3500;
-  const inf=0.025, r=0.05, re=0.025, btcR=0.08, yrs=25;
-  const defl = Math.pow(1+inf, yrs);
-  const fv = (pv,c,rate,n) => pv*Math.pow(1+rate,n) + c*(Math.pow(1+rate,n)-1)/rate;
-  const fmt = n => "$" + Math.round(n).toLocaleString("en-CA");
-  const contrib = window.rpContrib || { rrsp:1250, tfsa:1208, rpp:500, resp:580 };
-
-  const retTotal = window.retExpenses.reduce((s,r)=>s+(parseFloat(r.amt)||0),0) || 4482;
-  const fromPort = Math.max(0, retTotal-govtMo)*12;
-  const needed4pct = fromPort/0.04;
-
-  const bal2 = getRpBalances();
-  const rrsp65 = fv((bal2.rrsp!=null)?bal2.rrsp:70252,   contrib.rrsp*12, r, yrs);
-  const tfsa65 = fv((bal2.tfsa!=null)?bal2.tfsa:6735,    contrib.tfsa*12, r, yrs);
-  const rpp65  = fv((bal2.rpp!=null)?bal2.rpp:25979,     contrib.rpp*12,  r, yrs);
-  const btc65  = ((bal2.btc!=null)?bal2.btc:12000)   * Math.pow(1+btcR, yrs);
-  const india65 = ((bal2.india!=null)?bal2.india:300000) * Math.pow(1+re, yrs);
-  const wood65  = ((bal2.wood!=null)?bal2.wood:216667)   * Math.pow(1+re, yrs);
-  const liquid  = rrsp65+tfsa65+rpp65+btc65+india65+wood65;
-  const liqReal = liquid/defl;
-  const surplus = liqReal - needed4pct;
-
-  // Update expense summary footer
-  const setEl = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
-  setEl('ret-total-display',    fmt(retTotal) + '/mo');
-  setEl('ret-fromport-display', fmt(Math.max(0,fromPort/12)) + '/mo = ' + fmt(Math.max(0,fromPort)) + '/yr');
-
-  // Step 1
-  setEl('s1-total',    fmt(retTotal) + '/mo');
-  setEl('s1-fromport', fmt(Math.max(0,fromPort/12)) + '/mo = ' + fmt(Math.max(0,fromPort)) + '/yr');
-
-  // Step 2
-  setEl('s2-calc',    fmt(Math.max(0,fromPort)) + ' ÷ 0.04');
-  setEl('s2-needed',  fmt(needed4pct));
-
-  // Step 3 — fully updated
-  const registered65 = rrsp65+tfsa65+rpp65+btc65;
-  // Step 3 cards
-  setEl('s3-registered',     fmt(registered65/defl));
-  setEl('s3-registered-nom', fmt(registered65));
-  setEl('s3-india',          fmt(india65/defl));
-  setEl('s3-india-nom',      fmt(india65));
-  setEl('s3-wood',           fmt(wood65/defl));
-  setEl('s3-wood-nom',       fmt(wood65));
-  setEl('s3-total',          fmt(liqReal));
-  setEl('s3-total-nom',      fmt(liquid));
-  // Portfolio table rows
-  setEl('row-rrsp-nom',   fmt(rrsp65));        setEl('row-rrsp-real',   fmt(rrsp65/defl));
-  setEl('row-tfsa-nom',   fmt(tfsa65));        setEl('row-tfsa-real',   fmt(tfsa65/defl));
-  setEl('row-rpp-nom',    fmt(rpp65));         setEl('row-rpp-real',    fmt(rpp65/defl));
-  setEl('row-btc-nom',    fmt(btc65));         setEl('row-btc-real',    fmt(btc65/defl));
-  setEl('row-india-nom',  fmt(india65));       setEl('row-india-real',  fmt(india65/defl));
-  setEl('row-wood-nom',   fmt(wood65));        setEl('row-wood-real',   fmt(wood65/defl));
-  setEl('tbl-total-nom',  fmt(liquid));        setEl('tbl-total-real',  fmt(liqReal));
-
-  // Step 4
-  setEl('s4-have',    fmt(liqReal));
-  setEl('s4-need',    '− ' + fmt(needed4pct));
-  const s4verdict = document.getElementById('s4-verdict');
-  if (s4verdict) {
-    s4verdict.textContent = (surplus>0 ? '✓ Surplus — On Track' : '✗ Shortfall');
-    s4verdict.style.color = surplus>0 ? '#2a6e1e' : '#a02020';
-  }
-  setEl('s4-surplus', fmt(Math.abs(surplus)));
-  const s4pct = document.getElementById('s4-pct');
-  if (s4pct) {
-    s4pct.textContent = surplus>0
-      ? 'Your portfolio covers ' + ((liqReal/needed4pct)*100).toFixed(0) + '% of what you need — ' + fmt(surplus) + ' buffer in today\'s dollars'
-      : 'Increase contributions or reduce retirement expenses by ' + fmt(Math.abs(surplus/25/12)) + '/mo';
-    s4pct.style.color = surplus>0 ? '#6a9e6a' : '#c06060';
-  }
-
-  // Update portfolio needed card
-  setEl('card-needed', fmt(needed4pct));
-  setEl('card-needed-sub', 'to fund ' + fmt(Math.round(fromPort/12)) + '/mo from portfolio');
-
-  // Update surplus card
-  const sc = document.getElementById('card-surplus-container');
-  if (sc) {
-    sc.style.background = surplus>0 ? '#f0f7ee' : '#fff8f8';
-    sc.style.borderColor = surplus>0 ? 'rgba(42,110,30,0.2)' : 'rgba(160,32,32,0.2)';
-  }
-  const sl = document.getElementById('card-surplus-label');
-  if (sl) { sl.textContent = surplus>0 ? 'Surplus' : 'Shortfall'; sl.style.color = surplus>0?'#2a6e1e':'#a02020'; }
-  const sv = document.getElementById('card-surplus-val');
-  if (sv) { sv.textContent = fmt(Math.abs(surplus)); sv.style.color = surplus>0?'#2a6e1e':'#a02020'; }
-  const ss = document.getElementById('card-surplus-sub');
-  if (ss) { ss.textContent = surplus>0 ? '✓ On track' : '↑ Increase contributions'; ss.style.color = surplus>0?'#6a9e6a':'#c06060'; }
-}
-
 window.lockRp = () => { rpUnlocked = false; renderRpSection(); };
 
-function injectPrivatePanel() {
-  // Remove old separate panels if they exist
-  ['fs-wrapper','rp-wrapper'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.remove();
-  });
-
+// ============================================================
+// PRIVATE PANEL — always visible, password only needed to EDIT
+// ============================================================
+function injectSections() {
   if (document.getElementById('private-wrapper')) {
-    renderPrivatePanel();
-    return;
+    renderFsSection(); renderRpSection(); return;
   }
-
   const appEl = document.getElementById("app");
   if (!appEl) return;
 
@@ -1437,140 +1246,567 @@ function injectPrivatePanel() {
   wrapper.id = "private-wrapper";
   wrapper.style.cssText = "margin-top:32px;";
   wrapper.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-      <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#0d0d0b;">Private</div>
-      <div style="font-size:10px;background:rgba(26,82,128,0.1);color:#1a5280;padding:3px 8px;border-radius:10px;font-weight:600;letter-spacing:0.04em;">🔒 PRIVATE</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <div style="font-family:'DM Serif Display',serif;font-size:1.4rem;color:#0d0d0b;">Financial Summary</div>
     </div>
-    <div id="private-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;"></div>
+    <div id="fs-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;margin-bottom:32px;"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <div style="font-family:'DM Serif Display',serif;font-size:1.4rem;color:#0d0d0b;">Retirement Plan</div>
+    </div>
+    <div id="rp-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;margin-bottom:32px;"></div>
   `;
   appEl.appendChild(wrapper);
-  renderPrivatePanel();
+
+  Promise.all([loadFsData(), loadRpData()]).then(() => {
+    renderFsSection();
+    renderRpSection();
+  });
 }
 
-let privateUnlocked = false;
-let privateTab = 'summary'; // 'summary' or 'retirement'
+// Alias so old calls still work
+function injectPrivatePanel() { injectSections(); }
+function injectFsPanel()      { injectSections(); }
+function injectRpPanel()      { injectSections(); }
 
-function renderPrivatePanel() {
-  const container = document.getElementById("private-container");
+// ── FINANCIAL SUMMARY RENDER ──────────────────────────────
+let fsEditMode = false;
+
+function renderFsSection() {
+  const container = document.getElementById("fs-container");
   if (!container) return;
 
-  if (!privateUnlocked) {
-    container.innerHTML = `
-      <div style="text-align:center;padding:40px 20px;">
-        <div style="font-size:36px;margin-bottom:12px;">🔒</div>
-        <div style="font-size:15px;font-weight:600;color:#0d0d0b;margin-bottom:6px;">Financial Summary & Retirement Plan</div>
-        <div style="font-size:12px;color:#888;margin-bottom:20px;">Enter password to view</div>
-        <div style="display:flex;gap:8px;justify-content:center;">
-          <input id="priv-pw-input" type="password" placeholder="Password"
-            style="border:1px solid rgba(0,0,0,0.15);border-radius:8px;padding:8px 14px;font-size:13px;font-family:inherit;outline:none;width:160px;"
-            onkeydown="if(event.key==='Enter') checkPrivatePassword()">
-          <button onclick="checkPrivatePassword()"
-            style="background:#0d0d0b;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:13px;font-family:inherit;cursor:pointer;">
-            Unlock
-          </button>
-        </div>
-        <div id="priv-pw-error" style="font-size:12px;color:#c0392b;margin-top:10px;opacity:0;transition:opacity 0.3s;">Incorrect password</div>
-      </div>`;
-    return;
-  }
+  const invTotal    = fsInvTotal();
+  const libTotal    = fsLibTotal();
+  const primEquity  = fsPrimaryEquity();
+  const woodEquity  = fsWoodstockEquity();
+  const nwWith      = fsNwWith();
+  const nwWithout   = fsNwWithout();
+  const totalAssets = invTotal + primEquity + woodEquity;
 
-  // Tab bar + content
+  const invSections = Object.keys(fsData.investments).map(catKey => {
+    const cat = fsData.investments[catKey];
+    const catTotal = cat.items.reduce((s,i) => s+(parseFloat(i.amount)||0), 0);
+    const rows = cat.items.map((item, idx) => {
+      const nameEl = fsEditMode
+        ? `<input type="text" value="${item.name.replace(/"/g,'&quot;')}" onchange="updateFsInv('${catKey}',${idx},'name',this.value)"
+             style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-family:inherit;color:#0d0d0b;outline:none;flex:1;min-width:0;padding:1px 0;">`
+        : `<span style="font-size:12px;color:#666;">${item.name}</span>`;
+      const amtEl = fsEditMode
+        ? `<input type="number" value="${item.amount}" onchange="updateFsInv('${catKey}',${idx},'amount',this.value)" onfocus="this.select()"
+             style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;font-family:inherit;color:#1a5280;width:100px;text-align:right;outline:none;padding:1px 0;">`
+        : `<span style="font-size:12px;color:#777;font-variant-numeric:tabular-nums;">${fsFmt(item.amount)}</span>`;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 16px 4px 32px;margin:0 0 0 16px;border-left:2px solid rgba(26,82,128,0.1);"
+                onmouseover="this.style.background='#f8f8ff'" onmouseout="this.style.background='transparent'">
+                ${nameEl}<div style="margin-left:12px;flex-shrink:0;">${amtEl}</div>
+              </div>`;
+    }).join('');
+    const addBtn = fsEditMode
+      ? `<div style="padding:4px 16px 8px 32px;"><button onclick="addFsInvItem('${catKey}')"
+           style="background:none;border:1px dashed rgba(0,0,0,0.15);border-radius:5px;font-size:11px;color:#888;cursor:pointer;padding:3px 10px;font-family:inherit;">+ Add item</button></div>` : '';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px 6px;border-top:0.5px solid rgba(0,0,0,0.07);">
+        <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#222;">${cat.label}</span>
+        <span style="font-size:14px;font-weight:700;color:#1a5280;font-family:'DM Serif Display',serif;">${fsFmt(catTotal)}</span>
+      </div>${rows}<div style="margin-bottom:2px;"></div>${addBtn}`;
+  }).join('');
+
+  const reRows = Object.keys(fsData.real_estate).map(key => {
+    const re = fsData.real_estate[key];
+    const equity = re.value - re.mortgage;
+    if (fsEditMode) {
+      return `<div style="padding:6px 16px 6px 32px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+          <span style="font-size:13px;color:#444;">${re.label}</span>
+          <span style="font-size:13px;font-weight:600;color:#1a5280;">${fsFmt(equity)}</span>
+        </div>
+        <div style="display:flex;gap:16px;padding-left:8px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:#888;">Value</span>
+            <input type="number" value="${re.value}" onchange="updateFsRe('${key}','value',this.value)" onfocus="this.select()"
+              style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:12px;font-family:inherit;color:#0d0d0b;width:90px;outline:none;padding:1px 0;">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:#a02020;">Mortgage</span>
+            <input type="number" value="${re.mortgage}" onchange="updateFsRe('${key}','mortgage',this.value)" onfocus="this.select()"
+              style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:12px;font-family:inherit;color:#a02020;width:90px;outline:none;padding:1px 0;">
+          </div>
+        </div></div>`;
+    }
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 16px 5px 32px;margin:0 0 0 16px;border-left:2px solid rgba(42,110,30,0.12);"
+              onmouseover="this.style.background='#f8fff8'" onmouseout="this.style.background='transparent'">
+              <div>
+                <span style="font-size:12px;color:#555;">${re.label}</span>
+                <span style="font-size:10px;color:#aaa;margin-left:8px;">${fsFmt(re.value)} − ${fsFmt(re.mortgage)}</span>
+              </div>
+              <span style="font-size:12px;color:#2a6e1e;font-variant-numeric:tabular-nums;flex-shrink:0;margin-left:12px;">${fsFmt(equity)}</span>
+            </div>`;
+  }).join('');
+
+  const libRows = fsData.liabilities.mortgages.items.map((item, idx) => {
+    const nameEl = fsEditMode
+      ? `<input type="text" value="${item.name.replace(/"/g,'&quot;')}" onchange="updateFsLib(${idx},'name',this.value)"
+           style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-family:inherit;color:#0d0d0b;outline:none;flex:1;min-width:0;padding:1px 0;">`
+      : `<span style="font-size:12px;color:#666;">${item.name}</span>`;
+    const amtEl = fsEditMode
+      ? `<input type="number" value="${item.amount}" onchange="updateFsLib(${idx},'amount',this.value)" onfocus="this.select()"
+           style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;font-family:inherit;color:#a02020;width:100px;text-align:right;outline:none;padding:1px 0;">`
+      : `<span style="font-size:12px;color:#a02020;font-variant-numeric:tabular-nums;">${fsFmt(item.amount)}</span>`;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 16px 4px 32px;margin:0 0 0 16px;border-left:2px solid rgba(160,32,32,0.1);"
+              onmouseover="this.style.background='#fff8f8'" onmouseout="this.style.background='transparent'">
+              ${nameEl}<div style="margin-left:12px;flex-shrink:0;">${amtEl}</div></div>`;
+  }).join('');
+
+  const editStyle = fsEditMode
+    ? "border:1px solid rgba(42,110,30,0.35);background:rgba(42,110,30,0.1);color:#2a6e1e;"
+    : "border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#333330;";
+
   container.innerHTML = `
-    <!-- TAB BAR -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid rgba(0,0,0,0.09);background:#fafaf8;">
-      <div style="display:flex;gap:4px;">
-        <button onclick="switchPrivateTab('summary')" id="tab-btn-summary"
-          style="font-family:inherit;font-size:13px;font-weight:600;padding:12px 18px;border:none;cursor:pointer;border-bottom:2px solid ${privateTab==='summary'?'#1a5280':'transparent'};background:transparent;color:${privateTab==='summary'?'#1a5280':'#888'};transition:all 0.15s;">
-          📊 Financial Summary
-        </button>
-        <button onclick="switchPrivateTab('retirement')" id="tab-btn-retirement"
-          style="font-family:inherit;font-size:13px;font-weight:600;padding:12px 18px;border:none;cursor:pointer;border-bottom:2px solid ${privateTab==='retirement'?'#2a6e1e':'transparent'};background:transparent;color:${privateTab==='retirement'?'#2a6e1e':'#888'};transition:all 0.15s;">
-          🌿 Retirement Plan
+    <div style="padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.08);display:flex;justify-content:space-between;align-items:center;background:#fafaf8;">
+      <span style="font-size:11px;color:#aaa;">All values in CAD</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="fs-saved" style="font-size:12px;color:#2a6e1e;opacity:0;transition:opacity 0.3s;">✓ Saved</span>
+        <button onclick="toggleFsEdit()" style="font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;${editStyle}">
+          ${fsEditMode ? "✓ Done" : "✎ Edit"}
         </button>
       </div>
-      <button onclick="lockPrivate()" style="font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#888;">🔒 Lock</button>
     </div>
-    <!-- TAB CONTENT -->
-    <div id="private-tab-content"></div>
-  `;
-
-  renderPrivateTabContent();
+    <div style="padding:20px 16px;border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#aaa;margin-bottom:12px;">Net Worth</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+        <div style="background:#f0f7ee;border:1px solid rgba(42,110,30,0.2);border-radius:10px;padding:14px 16px;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#2a6e1e;margin-bottom:6px;">Including Primary Home</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:1.8rem;color:#2a6e1e;">${fsFmt(nwWith)}</div>
+          <div style="font-size:11px;color:#6a9e6a;margin-top:4px;">all assets − all liabilities</div>
+        </div>
+        <div style="background:#eef4fa;border:1px solid rgba(26,82,128,0.2);border-radius:10px;padding:14px 16px;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#1a5280;margin-bottom:6px;">Excluding Primary Home</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:1.8rem;color:#1a5280;">${fsFmt(nwWithout)}</div>
+          <div style="font-size:11px;color:#6a82ae;margin-top:4px;">investments + Woodstock equity</div>
+        </div>
+      </div>
+    </div>
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px 8px;">
+        <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Assets</span>
+        <span style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#2a6e1e;">${fsFmt(totalAssets)}</span>
+      </div>
+      <div style="margin:0 16px 12px;background:#f8f9ff;border:1px solid rgba(26,82,128,0.12);border-radius:8px;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 16px;background:rgba(26,82,128,0.06);border-bottom:1px solid rgba(26,82,128,0.1);">
+          <span style="font-size:12px;font-weight:600;color:#1a5280;">📊 Investments</span>
+          <span style="font-size:13px;font-weight:700;color:#1a5280;">${fsFmt(invTotal)}</span>
+        </div>${invSections}
+      </div>
+      <div style="margin:0 16px 16px;background:#f8fff8;border:1px solid rgba(42,110,30,0.12);border-radius:8px;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 16px;background:rgba(42,110,30,0.06);border-bottom:1px solid rgba(42,110,30,0.1);">
+          <span style="font-size:12px;font-weight:600;color:#2a6e1e;">🏠 Real Estate Equity</span>
+          <span style="font-size:13px;font-weight:700;color:#2a6e1e;">${fsFmt(primEquity + woodEquity)}</span>
+        </div>${reRows}
+      </div>
+    </div>
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px 8px;">
+        <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Liabilities</span>
+        <span style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#a02020;">${fsFmt(libTotal)}</span>
+      </div>
+      <div style="margin:0 16px 16px;background:#fff8f8;border:1px solid rgba(160,32,32,0.12);border-radius:8px;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 16px;background:rgba(160,32,32,0.06);border-bottom:1px solid rgba(160,32,32,0.1);">
+          <span style="font-size:12px;font-weight:600;color:#a02020;">🏦 Mortgages</span>
+          <span style="font-size:13px;font-weight:700;color:#a02020;">${fsFmt(libTotal)}</span>
+        </div>${libRows}
+      </div>
+    </div>
+    <div style="padding:16px 20px;background:#f8f7f4;">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;font-size:13px;text-align:center;">
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:2px;">Total Assets</span>
+          <span style="font-weight:700;color:#2a6e1e;font-size:15px;">${fsFmt(totalAssets)}</span>
+        </div>
+        <span style="font-size:18px;color:#ccc;padding:0 4px;">−</span>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:2px;">Total Liabilities</span>
+          <span style="font-weight:700;color:#a02020;font-size:15px;">${fsFmt(libTotal)}</span>
+        </div>
+        <span style="font-size:18px;color:#ccc;padding:0 4px;">=</span>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:2px;">Net Worth</span>
+          <span style="font-weight:700;color:#2a6e1e;font-size:18px;font-family:'DM Serif Display',serif;">${fsFmt(nwWith)}</span>
+        </div>
+      </div>
+    </div>`;
 }
 
-function renderPrivateTabContent() {
-  const el = document.getElementById("private-tab-content");
-  if (!el) return;
+window.toggleFsEdit = () => {
+  requireEditPassword(() => { fsEditMode = !fsEditMode; renderFsSection(); });
+};
 
-  if (privateTab === 'summary') {
-    el.innerHTML = '<div id="fs-container"></div>';
-    renderFsSection();
+window.updateFsInv = (catKey, idx, field, val) => {
+  if (field === "amount") fsData.investments[catKey].items[idx].amount = parseFloat(val)||0;
+  else fsData.investments[catKey].items[idx].name = val.trim() || fsData.investments[catKey].items[idx].name;
+  saveFsData(); renderFsSection(); refreshRetirementIfVisible();
+};
+window.updateFsRe = (key, field, val) => {
+  fsData.real_estate[key][field] = parseFloat(val)||0;
+  saveFsData(); renderFsSection(); refreshRetirementIfVisible();
+};
+window.updateFsLib = (idx, field, val) => {
+  if (field === "amount") {
+    fsData.liabilities.mortgages.items[idx].amount = parseFloat(val)||0;
+    if (idx === 0) fsData.real_estate.primary.mortgage   = parseFloat(val)||0;
+    if (idx === 1) fsData.real_estate.woodstock.mortgage = parseFloat(val)||0;
   } else {
-    el.innerHTML = '<div id="rp-container"></div>';
-    rpNeedsRefresh = false;
-    renderRpSection();
+    fsData.liabilities.mortgages.items[idx].name = val.trim() || fsData.liabilities.mortgages.items[idx].name;
   }
-}
-
-window.switchPrivateTab = (tab) => {
-  privateTab = tab;
-  const sBorder = tab==='summary' ? '#1a5280' : 'transparent';
-  const rBorder = tab==='retirement' ? '#2a6e1e' : 'transparent';
-  const sColor  = tab==='summary' ? '#1a5280' : '#888';
-  const rColor  = tab==='retirement' ? '#2a6e1e' : '#888';
-  const sb = document.getElementById("tab-btn-summary");
-  const rb = document.getElementById("tab-btn-retirement");
-  if (sb) { sb.style.borderBottomColor = sBorder; sb.style.color = sColor; }
-  if (rb) { rb.style.borderBottomColor = rBorder; rb.style.color = rColor; }
-  // Always re-render retirement fresh so it picks up any fsData changes
-  if (tab === 'retirement') rpNeedsRefresh = true;
-  renderPrivateTabContent();
+  saveFsData(); renderFsSection(); refreshRetirementIfVisible();
+};
+window.addFsInvItem = (catKey) => {
+  fsData.investments[catKey].items.push({name:"New item", amount:0});
+  renderFsSection(); saveFsData();
 };
 
-window.checkPrivatePassword = () => {
-  const input = document.getElementById("priv-pw-input");
-  const pwd = "ajax123";
-  if (input && input.value === pwd) {
-    privateUnlocked = true;
-    fsUnlocked = true;
-    rpUnlocked = true;
-    Promise.all([loadFsData(), loadRpData()]).then(() => {
-    renderPrivatePanel();
-    // If retirement tab is active, re-render it with loaded data
-    if (privateTab === 'retirement') renderPrivateTabContent();
-  });
-  } else {
-    const err = document.getElementById("priv-pw-error");
-    if (err) { err.style.opacity = 1; setTimeout(() => err.style.opacity = 0, 2000); }
-    if (input) { input.value = ""; input.focus(); }
-  }
-};
+// ── RETIREMENT PLAN RENDER ────────────────────────────────
+let rpEditMode = false;
 
-window.lockPrivate = () => {
-  privateUnlocked = false;
-  fsUnlocked = false;
-  rpUnlocked = false;
-  fsEditMode = false;
-  renderPrivatePanel();
-};
-
-// Lock functions — FS lock only hides FS, full lock via lockPrivate
-window.lockFs = () => {
-  fsUnlocked = false;
-  fsEditMode = false;
-  // Re-render FS section to show lock screen
-  const container = document.getElementById("fs-container");
-  if (container) renderFsSection();
-};
-window.lockRp = () => {
-  rpUnlocked = false;
+function renderRpSection() {
   const container = document.getElementById("rp-container");
-  if (container) renderRpSection();
+  if (!container) return;
+  rpNeedsRefresh = false;
+
+  const inf=0.025, r=0.05, re=0.025, btcR=0.08, yrs=25;
+  const defl = Math.pow(1+inf, yrs);
+  const fv = (pv,c,rate,n) => pv*Math.pow(1+rate,n) + c*(Math.pow(1+rate,n)-1)/rate;
+  const fmt = n => "$" + Math.round(n).toLocaleString("en-CA");
+  const fmtM = n => fmt(n) + "/mo";
+
+  const contrib = window.rpContrib || { rrsp:1250, tfsa:1208, rpp:500, resp:580 };
+  window.rpContrib = contrib;
+
+  // Get live balances from Financial Summary
+  const bal = getRpBalances();
+  const rrspNow  = (bal.rrsp  != null) ? bal.rrsp  : 70252;
+  const tfsaNow  = (bal.tfsa  != null) ? bal.tfsa  : 6735;
+  const rppNow   = (bal.rpp   != null) ? bal.rpp   : 25979;
+  const btcNow   = (bal.btc   != null) ? bal.btc   : 12000;
+  const indiaNow = (bal.india != null) ? bal.india : 300000;
+  const woodNow  = (bal.wood  != null) ? bal.wood  : 216667;
+  const respNow  = (bal.resp  != null) ? bal.resp  : 39837;
+
+  const rrsp65  = fv(rrspNow,  contrib.rrsp*12, r, yrs);
+  const tfsa65  = fv(tfsaNow,  contrib.tfsa*12, r, yrs);
+  const rpp65   = fv(rppNow,   contrib.rpp*12,  r, yrs);
+  const btc65   = btcNow   * Math.pow(1+btcR, yrs);
+  const india65 = indiaNow * Math.pow(1+re, yrs);
+  const wood65  = woodNow  * Math.pow(1+re, yrs);
+  const prim65  = 1200000  * Math.pow(1+re, yrs);
+  const liquid  = rrsp65+tfsa65+rpp65+btc65+india65+wood65;
+  const liqReal = liquid/defl;
+  const primReal= prim65/defl;
+
+  const nyr=12, vyr=14;
+  const cesg=1000, respAnnual=contrib.resp*12+cesg;
+  const respNoor = fv(respNow, respAnnual, r, nyr);
+  const cn = 120000*Math.pow(1+inf,nyr);
+  const cv = 120000*Math.pow(1+inf,vyr);
+  const rem = Math.max(respNoor-cn,0);
+  const respVeer = fv(rem, respAnnual, r, 2);
+  const veerGap = Math.max(cv-respVeer,0);
+  const topUp = veerGap>0 ? Math.round(veerGap*(r/12)/(Math.pow(1+r/12,vyr*12)-1)) : 0;
+
+  const govtMo = 3500;
+  if (!window.retExpenses || window.retExpenses.length === 0) {
+    window.retExpenses = [
+      {cat:"Housing",                       note:"prop. tax + utilities + insurance", amt:1382},
+      {cat:"Food & Groceries",              note:"2 people, no kids",                 amt:800},
+      {cat:"Auto",                          note:"insurance + gas, less driving",     amt:500},
+      {cat:"Health & Medical",              note:"prescriptions, dental, vision",     amt:300},
+      {cat:"Travel & Leisure",              note:"trips, dining out, hobbies",        amt:800},
+      {cat:"Subscriptions & Entertainment", note:"streaming, memberships",            amt:200},
+      {cat:"Personal Care",                 note:"grooming, clothing",                amt:200},
+      {cat:"Gifts & Family",                note:"kids, grandkids, occasions",        amt:300},
+    ];
+  }
+  const retTotal = window.retExpenses.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
+  const fromPort = Math.max(0, retTotal-govtMo)*12;
+  const needed4pct = fromPort/0.04;
+  const surplus = liqReal - needed4pct;
+
+  const contribInp = (key,val) => rpEditMode
+    ? `<input type="number" value="${val}" onchange="window.rpContrib['${key}']=parseFloat(this.value)||0; renderRpSection(); saveRpData();" onfocus="this.select()"
+        style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;">`
+    : `<span style="font-size:13px;font-weight:600;color:#1a5280;text-align:right;">${fmtM(val)}</span>`;
+
+  const expInp = (idx, val) => rpEditMode
+    ? `<input type="number" value="${val}" onchange="window.retExpenses[${idx}].amt=parseFloat(this.value)||0; renderRpSection(); saveRpData();" onfocus="this.select()"
+        style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;">`
+    : `<span style="font-size:13px;font-weight:600;color:#1a5280;">${fmt(val)}</span>`;
+
+  const rpEditStyle = rpEditMode
+    ? "border:1px solid rgba(42,110,30,0.35);background:rgba(42,110,30,0.1);color:#2a6e1e;"
+    : "border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#333330;";
+
+  const tableRows = [
+    { name:"RRSP",              growth:"5% nominal / 2.5% real", at65:rrsp65,  real:rrsp65/defl,  key:"rrsp", contrib:contrib.rrsp },
+    { name:"TFSA — XEQT",      growth:"5% nominal / 2.5% real", at65:tfsa65,  real:tfsa65/defl,  key:"tfsa", contrib:contrib.tfsa },
+    { name:"RPP — Rani",       growth:"5% nominal / 2.5% real", at65:rpp65,   real:rpp65/defl,   key:"rpp",  contrib:contrib.rpp  },
+    { name:"BTC (hold)",        growth:"8% nominal / 5.5% real", at65:btc65,   real:btc65/defl,   key:null,   contrib:null         },
+    { name:"India (sell at 65)",growth:"2.5% = inflation",       at65:india65, real:india65/defl, key:null,   contrib:null         },
+    { name:"Woodstock 1/3",    growth:"2.5% = inflation",       at65:wood65,  real:wood65/defl,  key:null,   contrib:null         },
+  ];
+
+  container.innerHTML = `
+    <div style="padding:10px 16px;border-bottom:1px solid rgba(0,0,0,0.08);background:#fafaf8;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:11px;color:#aaa;">All in today's purchasing power · 2.5% inflation · 25 years</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span id="rp-saved" style="font-size:12px;color:#2a6e1e;opacity:0;transition:opacity 0.3s;">✓ Saved</span>
+        <button onclick="toggleRpEdit()" style="font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;${rpEditStyle}">
+          ${rpEditMode ? "✓ Done" : "✎ Edit"}
+        </button>
+      </div>
+    </div>
+
+    <!-- ① EXPENSES -->
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:baseline;">
+        <span style="font-size:14px;font-weight:600;color:#0d0d0b;">① Monthly Expenses at 65</span>
+        <span style="font-size:11px;color:#888;">in today's dollars</span>
+      </div>
+      <div style="margin:0 16px 16px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;background:#fafaf8;padding:8px 14px;border-bottom:1px solid rgba(0,0,0,0.08);">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;">Category</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;text-align:center;">Note</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#1a5280;text-align:right;">Monthly</span>
+        </div>
+        ${window.retExpenses.map((row,idx) => `
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:8px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
+            onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+            <span style="font-size:13px;color:#333;">${row.cat}</span>
+            <span style="font-size:11px;color:#aaa;text-align:center;">${row.note}</span>
+            <div style="text-align:right;">${expInp(idx, row.amt)}</div>
+          </div>`).join('')}
+        <div style="padding:10px 14px;background:#f4f3ef;border-top:1px solid rgba(0,0,0,0.1);">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total monthly expenses</span>
+            <span style="font-size:14px;font-weight:700;color:#0d0d0b;font-family:'DM Serif Display',serif;">${fmt(retTotal)}/mo</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:12px;color:#2a6e1e;">CPP + OAS (guaranteed, inflation-indexed)</span>
+            <span style="font-size:12px;font-weight:600;color:#2a6e1e;">− $3,500/mo</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:0.5px solid rgba(0,0,0,0.15);">
+            <span style="font-size:13px;font-weight:600;color:#1a5280;">Needed from portfolio</span>
+            <span style="font-size:14px;font-weight:700;color:#1a5280;font-family:'DM Serif Display',serif;">${fmt(fromPort/12)}/mo</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② PORTFOLIO -->
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:14px 16px 6px;">
+        <span style="font-size:14px;font-weight:600;color:#0d0d0b;">② Portfolio at 65</span>
+      </div>
+      <div style="margin:0 16px 16px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;background:#fafaf8;padding:8px 12px;border-bottom:1px solid rgba(0,0,0,0.08);" class="rp-portfolio-row">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;">Asset</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;text-align:center;" class="rp-col-growth">Growth</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#1a5280;text-align:right;">Monthly</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#2a6e1e;text-align:right;">Today's $</span>
+        </div>
+        ${tableRows.map(row => `
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:8px 12px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;" class="rp-portfolio-row"
+            onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+            <span style="font-size:13px;color:#333;">${row.name}</span>
+            <span style="font-size:11px;color:#888;text-align:center;" class="rp-col-growth">${row.growth}</span>
+            <div style="text-align:right;">${row.key ? contribInp(row.key,row.contrib) : '<span style="font-size:12px;color:#ccc;">—</span>'}</div>
+            <span style="font-size:13px;font-weight:600;color:#2a6e1e;text-align:right;font-variant-numeric:tabular-nums;">${fmt(row.real)}</span>
+          </div>`).join('')}
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:9px 12px;background:#f4f3ef;border-top:1px solid rgba(0,0,0,0.1);" class="rp-portfolio-row">
+          <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total liquid</span>
+          <span></span>
+          <span style="font-size:12px;font-weight:600;color:#1a5280;text-align:right;">${fmtM(contrib.rrsp+contrib.tfsa+contrib.rpp)}</span>
+          <span style="font-size:13px;font-weight:700;color:#2a6e1e;text-align:right;">${fmt(liqReal)}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ③ READINESS -->
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:14px 16px 6px;">
+        <span style="font-size:14px;font-weight:600;color:#0d0d0b;">③ Retirement Readiness</span>
+      </div>
+      <div style="margin:0 16px 12px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
+        <div style="padding:10px 14px;background:#fafaf8;border-bottom:1px solid rgba(0,0,0,0.06);">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:8px;">Step 1 — Monthly Income Needed</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span style="font-size:13px;color:#333;">Retirement expenses (from ①)</span>
+            <span style="font-size:13px;font-weight:600;color:#0d0d0b;">${fmt(retTotal)}/mo</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span style="font-size:13px;color:#2a6e1e;">CPP + OAS (indexed)</span>
+            <span style="font-size:13px;font-weight:600;color:#2a6e1e;">− $3,500/mo</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:1px solid rgba(0,0,0,0.08);">
+            <span style="font-size:13px;font-weight:600;color:#1a5280;">Gap from portfolio</span>
+            <span style="font-size:14px;font-weight:700;color:#1a5280;">${fmt(fromPort/12)}/mo = ${fmt(fromPort)}/yr</span>
+          </div>
+        </div>
+        <div style="padding:10px 14px;background:#fff;border-bottom:1px solid rgba(0,0,0,0.06);">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:8px;">Step 2 — Portfolio Required (4% Rule)</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span style="font-size:13px;color:#333;">${fmt(fromPort)}/yr ÷ 4%</span>
+            <span style="font-size:14px;font-weight:700;color:#1a5280;">${fmt(needed4pct)}</span>
+          </div>
+          <div style="font-size:11px;color:#aaa;margin-top:2px;">4% rule = safe withdrawal rate, portfolio lasts 30+ years</div>
+        </div>
+        <div style="padding:10px 14px;background:#fff;border-bottom:1px solid rgba(0,0,0,0.06);">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:8px;">Step 3 — What You'll Have (Today's $)</div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;margin-bottom:4px;">
+            <span style="font-size:10px;color:#aaa;"></span>
+            <span style="font-size:10px;color:#2a6e1e;font-weight:600;text-align:right;">Today's $</span>
+            <span style="font-size:10px;color:#aaa;text-align:right;">2051 actual</span>
+          </div>
+          ${[
+            ["RRSP + TFSA + RPP + BTC", (rrsp65+tfsa65+rpp65+btc65)/defl, rrsp65+tfsa65+rpp65+btc65],
+            ["India property",           india65/defl,                      india65],
+            ["Woodstock 1/3",            wood65/defl,                       wood65],
+          ].map(([name,real,nom])=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center;margin-bottom:3px;">
+            <span style="font-size:12px;color:#555;">${name}</span>
+            <span style="font-size:12px;font-weight:600;color:#2a6e1e;text-align:right;">${fmt(real)}</span>
+            <span style="font-size:11px;color:#aaa;text-align:right;">${fmt(nom)}</span>
+          </div>`).join('')}
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center;padding-top:6px;border-top:1px solid rgba(0,0,0,0.08);">
+            <span style="font-size:13px;font-weight:600;color:#2a6e1e;">Total liquid</span>
+            <span style="font-size:13px;font-weight:700;color:#2a6e1e;text-align:right;">${fmt(liqReal)}</span>
+            <span style="font-size:11px;color:#aaa;text-align:right;">${fmt(liquid)}</span>
+          </div>
+          <div style="font-size:10px;color:#aaa;margin-top:6px;font-style:italic;">Today's $ = same purchasing power as now · 2051 actual = what your account will show</div>
+        </div>
+        <div style="padding:12px 14px;background:${surplus>0?'#f0f7ee':'#fff8f8'};">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:${surplus>0?'#2a6e1e':'#a02020'};margin-bottom:8px;">Step 4 — Verdict</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+            <span style="font-size:13px;color:#555;">Portfolio you'll have</span>
+            <span style="font-size:13px;font-weight:600;color:#2a6e1e;">${fmt(liqReal)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:13px;color:#555;">Portfolio you need</span>
+            <span style="font-size:13px;font-weight:600;color:#1a5280;">− ${fmt(needed4pct)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid ${surplus>0?'rgba(42,110,30,0.15)':'rgba(160,32,32,0.15)'};">
+            <span style="font-size:14px;font-weight:700;color:${surplus>0?'#2a6e1e':'#a02020'};">${surplus>0?'✓ On Track':'✗ Shortfall'}</span>
+            <span style="font-family:'DM Serif Display',serif;font-size:1.5rem;color:${surplus>0?'#2a6e1e':'#a02020'};">${fmt(Math.abs(surplus))}</span>
+          </div>
+          <div style="font-size:11px;color:${surplus>0?'#6a9e6a':'#c06060'};margin-top:6px;">
+            ${surplus>0
+              ? `Portfolio covers ${((liqReal/needed4pct)*100).toFixed(0)}% of what you need — ${fmt(surplus)} buffer in today's dollars`
+              : `Increase contributions or reduce retirement expenses`}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ④ CPP + OAS -->
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:14px 16px 6px;">
+        <span style="font-size:14px;font-weight:600;color:#0d0d0b;">④ CPP + OAS</span>
+        <span style="font-size:11px;color:#2a6e1e;font-weight:500;margin-left:8px;">● Fully indexed to inflation forever</span>
+      </div>
+      <div style="margin:0 16px 16px;background:#f8fff8;border:1px solid rgba(42,110,30,0.12);border-radius:8px;overflow:hidden;">
+        ${[["CPP — Manny","$1,200/mo","Verify at My Service Canada"],
+           ["CPP — Rani","$900/mo","Verify at My Service Canada"],
+           ["OAS — Manny","$700/mo","Eligible at 65"],
+           ["OAS — Rani","$700/mo","Eligible at 65"]]
+          .map(([n,v,note])=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);">
+            <div><span style="font-size:13px;color:#333;">${n}</span><span style="font-size:11px;color:#aaa;margin-left:8px;">${note}</span></div>
+            <span style="font-size:13px;font-weight:600;color:#2a6e1e;">${v}</span>
+          </div>`).join('')}
+        <div style="display:flex;justify-content:space-between;padding:10px 14px;background:rgba(42,110,30,0.06);border-top:1px solid rgba(42,110,30,0.1);">
+          <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total government income</span>
+          <span style="font-size:14px;font-weight:700;color:#2a6e1e;">$3,500/mo · always inflation-adjusted</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑤ RESP -->
+    <div>
+      <div style="padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:baseline;">
+        <span style="font-size:14px;font-weight:600;color:#0d0d0b;">⑤ RESP — Education Fund</span>
+        <span style="font-size:11px;color:#888;">5% growth · $30K/yr today</span>
+      </div>
+      <div style="margin:0 16px 20px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
+        ${[["RESP balance today", fmt(respNow), ""],
+           ["Monthly contribution", rpEditMode ? `<input type="number" value="${contrib.resp}" onchange="window.rpContrib['resp']=parseFloat(this.value)||0;renderRpSection();saveRpData();" onfocus="this.select()" style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;">` : fmt(contrib.resp)+"/mo", ""],
+           ["Annual CESG (govt)", "$1,000/yr", "20% match on $2,500/child"],
+           ["Total going in /yr", fmt(respAnnual), "contributions + CESG"]]
+          .map(([label,val,note])=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr;padding:7px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
+            onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+            <div><span style="font-size:13px;color:#333;">${label}</span>${note?`<span style="font-size:11px;color:#aaa;margin-left:6px;">${note}</span>`:''}</div>
+            <div style="text-align:right;font-size:13px;font-weight:600;color:#1a5280;">${val}</div>
+          </div>`).join('')}
+        <div style="padding:8px 14px;background:rgba(26,82,128,0.04);border-top:1px solid rgba(0,0,0,0.06);">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#1a5280;">Noor — University 2038–2042</span>
+        </div>
+        ${[["RESP at Noor's start (2038)", fmt(respNoor), "12 yrs growth"],
+           ["Total 4-year cost (2038$)", fmt(cn), "inflated at 2.5%/yr"],
+           ["Remaining after Noor", fmt(rem), "available for Veer"]]
+          .map(([l,v,n])=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr;padding:7px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
+            onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+            <div><span style="font-size:13px;color:#333;">${l}</span><span style="font-size:11px;color:#aaa;margin-left:6px;">${n}</span></div>
+            <span style="font-size:13px;font-weight:600;color:#1a5280;text-align:right;">${v}</span>
+          </div>`).join('')}
+        <div style="padding:8px 14px;background:rgba(106,158,106,0.08);border-top:1px solid rgba(0,0,0,0.06);">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#2a6e1e;">Veer — University 2040–2044</span>
+        </div>
+        ${[["RESP at Veer's start (2040)", fmt(respVeer), "remaining + 2 more yrs"],
+           ["Total 4-year cost (2040$)", fmt(cv), "inflated at 2.5%/yr"]]
+          .map(([l,v,n])=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr;padding:7px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;"
+            onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+            <div><span style="font-size:13px;color:#333;">${l}</span><span style="font-size:11px;color:#aaa;margin-left:6px;">${n}</span></div>
+            <span style="font-size:13px;font-weight:600;color:#1a5280;text-align:right;">${v}</span>
+          </div>`).join('')}
+        <div style="padding:12px 14px;background:${veerGap>0?'#fff8f8':'#f0f7ee'};border-top:1px solid rgba(0,0,0,0.08);">
+          ${veerGap>0
+            ?`<div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div style="font-size:13px;font-weight:600;color:#a02020;">Veer gap: ${fmt(veerGap)}</div>
+                  <div style="font-size:11px;color:#c06060;margin-top:2px;">Add $${topUp}/mo to RESP now to close gap</div>
+                </div><span style="font-size:20px;">⚠️</span></div>`
+            :`<div style="font-size:13px;font-weight:600;color:#2a6e1e;">✓ Both kids fully funded</div>`}
+        </div>
+      </div>
+    </div>`;
+}
+
+window.toggleRpEdit = () => {
+  requireEditPassword(() => { rpEditMode = !rpEditMode; renderRpSection(); });
 };
 
-// Redirect old inject functions to new combined one
-function injectFsPanel() { injectPrivatePanel(); }
-function injectRpPanel() { injectPrivatePanel(); }
-
+// ── FIREBASE SAVE/LOAD ────────────────────────────────────
+let rpSaveTimer = null;
+async function loadRpData() {
+  try {
+    const snap = await db.collection("budget").doc("retirementplan").get();
+    if (snap.exists) {
+      const d = snap.data();
+      if (d.contrib)     window.rpContrib   = d.contrib;
+      if (d.retExpenses) window.retExpenses = d.retExpenses;
+    }
+  } catch(e) { console.warn("loadRpData failed", e); }
+}
+async function saveRpData() {
+  clearTimeout(rpSaveTimer);
+  rpSaveTimer = setTimeout(async () => {
+    try {
+      await db.collection("budget").doc("retirementplan").set({
+        contrib: window.rpContrib || {}, retExpenses: window.retExpenses || []
+      });
+      const el = document.getElementById("rp-saved");
+      if (el) { el.style.opacity=1; setTimeout(()=>{el.style.opacity=0;},2000); }
+    } catch(e) { console.warn("saveRpData failed", e); }
+  }, 800);
+}
 
 </script>
 </body>
