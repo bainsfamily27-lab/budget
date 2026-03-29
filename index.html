@@ -21,7 +21,6 @@
   @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Loading */
   .loading {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     height: 60vh; gap: 16px;
@@ -33,7 +32,6 @@
   }
   .loading-text { font-size: 14px; color: #555550; }
 
-  /* Header */
   .header {
     display: flex; justify-content: space-between; align-items: flex-end;
     margin-bottom: 24px; border-bottom: 1px solid rgba(0,0,0,0.12); padding-bottom: 20px;
@@ -47,7 +45,6 @@
   .grand-total-val { font-family: 'DM Serif Display', serif; font-size: 2.4rem; color: #2a6e1e; line-height: 1; text-align: right; }
   .grand-total-label { font-size: 11px; color: #555550; letter-spacing: 0.07em; text-transform: uppercase; margin-top: 4px; text-align: right; }
 
-  /* Summary cards */
   .summary-grid {
     display: grid; grid-template-columns: repeat(6, minmax(0,1fr));
     gap: 10px; margin-bottom: 20px; animation: fadeUp 0.4s 0.05s ease both;
@@ -59,7 +56,6 @@
   .sum-card-val { font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: #0d0d0b; line-height: 1; }
   .sum-card-sub { font-size: 11px; color: #888; margin-top: 4px; }
 
-  /* Toolbar */
   .toolbar {
     display: flex; justify-content: flex-end; align-items: center;
     gap: 12px; margin-bottom: 14px;
@@ -76,10 +72,8 @@
     background: rgba(42,110,30,0.1); border-color: rgba(42,110,30,0.35); color: #2a6e1e;
   }
 
-  /* Main layout */
   .main-grid { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
 
-  /* Sections */
   .categories { display: flex; flex-direction: column; gap: 14px; }
   .section {
     background: #fff; border: 1px solid rgba(0,0,0,0.13); border-radius: 12px;
@@ -103,7 +97,6 @@
   .chevron { color: #888; font-size: 11px; transition: transform 0.2s; }
   .chevron.collapsed { transform: rotate(-90deg); }
 
-  /* Line items */
   .section-body { padding: 4px 0; }
   .line-item {
     display: flex; align-items: center; justify-content: space-between;
@@ -116,18 +109,16 @@
   .line-bar { height: 100%; border-radius: 2px; opacity: 0.55; }
   .line-amount { font-size: 13px; font-weight: 600; color: #0d0d0b; font-variant-numeric: tabular-nums; min-width: 72px; text-align: right; }
 
-  /* Inputs */
   .name-input, .amount-input {
     background: transparent; border: none; border-bottom: 1px solid rgba(0,0,0,0.15);
     font-family: 'DM Sans', sans-serif; color: #0d0d0b; outline: none; padding: 1px 0;
-    font-size: 16px; /* prevent iOS zoom on focus */
+    font-size: 16px;
   }
   .name-input { font-size: 13px; flex: 1; min-width: 0; }
   .amount-input { font-size: 13px; font-weight: 600; width: 80px; text-align: right; }
   .name-input:focus, .amount-input:focus { border-bottom-color: #2a6e1e; }
   input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
 
-  /* Remove + Add buttons */
   .remove-btn {
     background: none; border: none; cursor: pointer; color: #cc3333;
     font-size: 16px; padding: 0 4px 0 0; line-height: 1; flex-shrink: 0;
@@ -140,7 +131,6 @@
   }
   .add-item-btn:hover { border-color: rgba(0,0,0,0.35); color: #0d0d0b; }
 
-  /* Chart panel */
   .chart-panel {
     background: #fff; border: 1px solid rgba(0,0,0,0.13); border-radius: 12px;
     padding: 20px; position: sticky; top: 16px; align-self: start;
@@ -155,34 +145,23 @@
   .legend-name { color: #555550; }
   .legend-val { font-weight: 600; color: #0d0d0b; font-variant-numeric: tabular-nums; }
 
-  /* ── MOBILE SPECIFIC ────────────────────────────────── */
-  /* Tab buttons on mobile */
   @media (max-width: 480px) {
     body { padding: 12px 10px; }
     .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
     .sum-card { padding: 10px 12px; }
     .sum-card-val { font-size: 1rem; }
-
-    /* Private panel tab buttons */
     #private-container button[onclick*="switchPrivateTab"] {
       font-size: 11px !important;
       padding: 10px 10px !important;
     }
-
-    /* Retirement expenses table — stack note below category */
     .ret-exp-note { display: none; }
-
-    /* RESP table */
     .rp-col-nominal { display: none !important; }
-
-    /* Portfolio table — 3 cols instead of 5 */
     .rp-portfolio-row {
       grid-template-columns: 2fr 1fr 1fr !important;
     }
     .rp-col-growth { display: none !important; }
   }
 
-    /* ── RESPONSIVE / MOBILE ─────────────────────────────── */
   @media (max-width: 900px) {
     .main-grid { grid-template-columns: 1fr; }
     .summary-grid { grid-template-columns: repeat(3, 1fr); }
@@ -199,12 +178,9 @@
     .chart-panel { position: static; }
     .fs-cols { grid-template-columns: 1fr !important; }
     .fs-cols > div:first-child { border-right: none !important; border-bottom: 1px solid rgba(0,0,0,0.08); }
-
-    /* Private panel tabs */
     #private-container [style*="grid-template-columns:2fr 1fr 1fr 1fr 1fr"] {
       grid-template-columns: 2fr 1fr 1fr !important;
     }
-    /* Hide nominal column on mobile — keep today's $ */
     .rp-col-nominal { display: none !important; }
   }
 </style>
@@ -214,8 +190,6 @@
 <div id="app"></div>
 
 <script>
-// Firebase loaded via CDN scripts in <head>
-
 const firebaseConfig = {
   apiKey: "AIzaSyCi-h2avvX-QTUX5zuKa4J3jaf7LQo_YG8",
   authDomain: "house-budget-aaef1.firebaseapp.com",
@@ -239,7 +213,6 @@ const DEFAULTS = {
   other:  { label:"Others",              icon:"📦", color:"#555550", items:[{name:"House Cleaning",amount:200},{name:"Presto",amount:100},{name:"Life Insurance",amount:270},{name:"Gym (GoodLife)",amount:76},{name:"Enercare",amount:64},{name:"Claude AI",amount:27}] }
 };
 
-// ✏️ CHANGE CATEGORY ORDER HERE — just rearrange the keys in this array
 const CATEGORY_ORDER = ["home", "kids", "subs", "auto", "food", "phone", "invest", "other"];
 
 const fmt = n => "$" + Number(n).toLocaleString("en-CA", {minimumFractionDigits:0, maximumFractionDigits:2});
@@ -302,7 +275,7 @@ function render() {
           <div style="font-size:13px;font-weight:600;color:#2a6e1e;letter-spacing:0.04em;">CAD</div>
         </div>
         <div class="grand-total-label">total / month</div>
-        <div id="usd-equiv" style="font-size:12px;color:#888;text-align:right;margin-top:3px;">fetching USD...</div>
+        <div id="usd-equiv" style="font-size:12px;color:#888;text-align:right;margin-top:3px;"></div>
       </div>
     </div>
 
@@ -365,7 +338,7 @@ function renderSection(key, animIdx) {
               ? `<div style="display:flex;align-items:center;gap:6px;flex:1">
                    <button class="remove-btn" onclick="removeItem('${key}',${idx})">×</button>
                    <input class="name-input" type="text" value="${item.name.replace(/"/g,'&quot;')}"
-                     onchange="updateName('${key}',${idx},this.value)">
+                     oninput="updateName('${key}',${idx},this.value)">
                  </div>`
               : `<span class="line-name">${item.name}</span>`
             }
@@ -375,7 +348,7 @@ function renderSection(key, animIdx) {
               </div>
               ${editMode
                 ? `<input class="amount-input" type="number" value="${item.amount}"
-                     onchange="updateAmount('${key}',${idx},this.value)"
+                     oninput="updateAmount('${key}',${idx},this.value)"
                      onfocus="this.select()">`
                 : `<span class="line-amount">${fmt(item.amount)}</span>`
               }
@@ -452,14 +425,18 @@ window.toggleSection = (key) => {
   if (sec) sec.outerHTML = renderSection(key, 0);
 };
 
+// FIX: Use oninput and debounce saves — value is captured immediately on every keystroke
 window.updateAmount = (key, idx, val) => {
-  data[key].items[idx].amount = parseFloat(val) || 0;
+  const parsed = parseFloat(val);
+  // Only update if we have a valid number (allow empty string while typing)
+  if (val === '' || val === '-') return;
+  data[key].items[idx].amount = isNaN(parsed) ? 0 : parsed;
   refreshTotals(key);
   saveData();
 };
 
 window.updateName = (key, idx, val) => {
-  data[key].items[idx].name = val.trim() || data[key].items[idx].name;
+  data[key].items[idx].name = val; // Don't trim while typing — save on done
   saveData();
 };
 
@@ -476,20 +453,12 @@ window.removeItem = (key, idx) => {
 };
 
 function refreshTotals(key) {
-  // Update section total
   const st = document.getElementById(`sectotal-${key}`);
   if (st) st.textContent = fmt(secTotal(data[key]));
 
-  // Update grand total
   const gt = document.getElementById("grand-total");
   if (gt) gt.textContent = fmt(grandTotal(data));
 
-  // Update summary cards
-  const summaryMap = {
-    home: "home", food: "food", auto: "auto",
-    invest: "investments", subs: "subscriptions",
-    other: "others", phone: "others", kids: "others"
-  };
   const othersTotal = secTotal(data.other)+secTotal(data.phone)+secTotal(data.kids);
   document.querySelectorAll("[id^='sum-']").forEach(el => {
     if (el.id === "sum-home")          el.textContent = fmt(secTotal(data.home));
@@ -500,22 +469,16 @@ function refreshTotals(key) {
     if (el.id === "sum-others")        el.textContent = fmt(othersTotal);
   });
 
-  // Rebuild chart
   buildChart();
-  updateUSD();
 }
 
-
-
 // --- Init ---
-// Render immediately on page load
 window.addEventListener('DOMContentLoaded', function() {
   try { render(); } catch(e) { console.error("render failed:", e); }
   setTimeout(function() {
     try { injectSections(); } catch(e) { console.error("injectSections failed:", e); }
   }, 200);
 
-  // Load Firebase data in background, then re-render and re-inject
   try {
     loadData().then(function() {
       try { render(); } catch(e) {}
@@ -643,22 +606,32 @@ async function saveRpData() {
   }, 800);
 }
 
+// FIX: All FS/RP inputs also changed from onchange → oninput
 window.updateFsInv = (catKey, idx, field, val) => {
-  if (field==="amount") fsData.investments[catKey].items[idx].amount = parseFloat(val)||0;
-  else fsData.investments[catKey].items[idx].name = val.trim()||fsData.investments[catKey].items[idx].name;
+  if (field==="amount") {
+    const parsed = parseFloat(val);
+    if (val === '' || val === '-') return;
+    fsData.investments[catKey].items[idx].amount = isNaN(parsed) ? 0 : parsed;
+  } else {
+    fsData.investments[catKey].items[idx].name = val;
+  }
   saveFsData(); renderFsSection(); refreshRetirementIfVisible();
 };
 window.updateFsRe = (key, field, val) => {
-  fsData.real_estate[key][field] = parseFloat(val)||0;
+  const parsed = parseFloat(val);
+  if (val === '' || val === '-') return;
+  fsData.real_estate[key][field] = isNaN(parsed) ? 0 : parsed;
   saveFsData(); renderFsSection(); refreshRetirementIfVisible();
 };
 window.updateFsLib = (idx, field, val) => {
   if (field==="amount") {
-    fsData.liabilities.mortgages.items[idx].amount = parseFloat(val)||0;
-    if (idx===0) fsData.real_estate.primary.mortgage   = parseFloat(val)||0;
-    if (idx===1) fsData.real_estate.woodstock.mortgage = parseFloat(val)||0;
+    const parsed = parseFloat(val);
+    if (val === '' || val === '-') return;
+    fsData.liabilities.mortgages.items[idx].amount = isNaN(parsed) ? 0 : parsed;
+    if (idx===0) fsData.real_estate.primary.mortgage   = isNaN(parsed) ? 0 : parsed;
+    if (idx===1) fsData.real_estate.woodstock.mortgage = isNaN(parsed) ? 0 : parsed;
   } else {
-    fsData.liabilities.mortgages.items[idx].name = val.trim()||fsData.liabilities.mortgages.items[idx].name;
+    fsData.liabilities.mortgages.items[idx].name = val;
   }
   saveFsData(); renderFsSection(); refreshRetirementIfVisible();
 };
@@ -711,10 +684,10 @@ function renderFsSection() {
     const catTotal=cat.items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
     const rows=cat.items.map((item,idx)=>{
       const nameEl=fsEditMode
-        ?`<input type="text" value="${item.name.replace(/"/g,'&quot;')}" onchange="updateFsInv('${catKey}',${idx},'name',this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-family:inherit;color:#0d0d0b;outline:none;flex:1;min-width:0;padding:1px 0;">`
+        ?`<input type="text" value="${item.name.replace(/"/g,'&quot;')}" oninput="updateFsInv('${catKey}',${idx},'name',this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-family:inherit;color:#0d0d0b;outline:none;flex:1;min-width:0;padding:1px 0;">`
         :`<span style="font-size:12px;color:#666;">${item.name}</span>`;
       const amtEl=fsEditMode
-        ?`<input type="number" value="${item.amount}" onchange="updateFsInv('${catKey}',${idx},'amount',this.value)" onfocus="this.select()" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;font-family:inherit;color:#1a5280;width:100px;text-align:right;outline:none;padding:1px 0;">`
+        ?`<input type="number" value="${item.amount}" oninput="updateFsInv('${catKey}',${idx},'amount',this.value)" onfocus="this.select()" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;font-family:inherit;color:#1a5280;width:100px;text-align:right;outline:none;padding:1px 0;">`
         :`<span style="font-size:12px;color:#777;font-variant-numeric:tabular-nums;">${fsFmt(item.amount)}</span>`;
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 16px 4px 32px;margin-left:16px;border-left:2px solid rgba(26,82,128,0.1);" onmouseover="this.style.background='#f8f8ff'" onmouseout="this.style.background='transparent'">${nameEl}<div style="margin-left:12px;flex-shrink:0;">${amtEl}</div></div>`;
     }).join('');
@@ -734,9 +707,9 @@ function renderFsSection() {
       </div>
       <div style="display:flex;gap:16px;padding-left:8px;">
         <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:11px;color:#888;">Value</span>
-          <input type="number" value="${re.value}" onchange="updateFsRe('${key}','value',this.value)" onfocus="this.select()" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:12px;font-family:inherit;color:#0d0d0b;width:90px;outline:none;padding:1px 0;"></div>
+          <input type="number" value="${re.value}" oninput="updateFsRe('${key}','value',this.value)" onfocus="this.select()" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:12px;font-family:inherit;color:#0d0d0b;width:90px;outline:none;padding:1px 0;"></div>
         <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:11px;color:#a02020;">Mortgage</span>
-          <input type="number" value="${re.mortgage}" onchange="updateFsRe('${key}','mortgage',this.value)" onfocus="this.select()" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:12px;font-family:inherit;color:#a02020;width:90px;outline:none;padding:1px 0;"></div>
+          <input type="number" value="${re.mortgage}" oninput="updateFsRe('${key}','mortgage',this.value)" onfocus="this.select()" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:12px;font-family:inherit;color:#a02020;width:90px;outline:none;padding:1px 0;"></div>
       </div></div>`;
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 16px 5px 32px;margin-left:16px;border-left:2px solid rgba(42,110,30,0.12);" onmouseover="this.style.background='#f8fff8'" onmouseout="this.style.background='transparent'">
       <div><span style="font-size:12px;color:#555;">${re.label}</span><span style="font-size:10px;color:#aaa;margin-left:8px;">${fsFmt(re.value)} − ${fsFmt(re.mortgage)}</span></div>
@@ -745,10 +718,10 @@ function renderFsSection() {
 
   const libRows=fsData.liabilities.mortgages.items.map((item,idx)=>{
     const nameEl=fsEditMode
-      ?`<input type="text" value="${item.name.replace(/"/g,'&quot;')}" onchange="updateFsLib(${idx},'name',this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-family:inherit;color:#0d0d0b;outline:none;flex:1;min-width:0;padding:1px 0;">`
+      ?`<input type="text" value="${item.name.replace(/"/g,'&quot;')}" oninput="updateFsLib(${idx},'name',this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-family:inherit;color:#0d0d0b;outline:none;flex:1;min-width:0;padding:1px 0;">`
       :`<span style="font-size:12px;color:#666;">${item.name}</span>`;
     const amtEl=fsEditMode
-      ?`<input type="number" value="${item.amount}" onchange="updateFsLib(${idx},'amount',this.value)" onfocus="this.select()" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;font-family:inherit;color:#a02020;width:100px;text-align:right;outline:none;padding:1px 0;">`
+      ?`<input type="number" value="${item.amount}" oninput="updateFsLib(${idx},'amount',this.value)" onfocus="this.select()" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;font-family:inherit;color:#a02020;width:100px;text-align:right;outline:none;padding:1px 0;">`
       :`<span style="font-size:12px;color:#a02020;font-variant-numeric:tabular-nums;">${fsFmt(item.amount)}</span>`;
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 16px 4px 32px;margin-left:16px;border-left:2px solid rgba(160,32,32,0.1);" onmouseover="this.style.background='#fff8f8'" onmouseout="this.style.background='transparent'">${nameEl}<div style="margin-left:12px;flex-shrink:0;">${amtEl}</div></div>`;
   }).join('');
@@ -893,12 +866,13 @@ function renderRpSection() {
   const needed4pct=fromPort/0.04;
   const surplus=liqReal-needed4pct;
 
+  // FIX: oninput instead of onchange for retirement plan inputs too
   const contribInp=(key,val)=>rpEditMode
-    ?`<input type="number" value="${val}" onchange="window.rpContrib['${key}']=parseFloat(this.value)||0;renderRpSection();saveRpData();" onfocus="this.select()" style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;">`
+    ?`<input type="number" value="${val}" oninput="(function(v){if(v===''||v==='-')return;window.rpContrib['${key}']=parseFloat(v)||0;renderRpSection();saveRpData();})(this.value)" onfocus="this.select()" style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;">`
     :`<span style="font-size:13px;font-weight:600;color:#1a5280;">${fmtM(val)}</span>`;
 
   const expInp=(idx,val)=>rpEditMode
-    ?`<input type="number" value="${val}" onchange="window.retExpenses[${idx}].amt=parseFloat(this.value)||0;renderRpSection();saveRpData();" onfocus="this.select()" style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;">`
+    ?`<input type="number" value="${val}" oninput="(function(v){if(v===''||v==='-')return;window.retExpenses[${idx}].amt=parseFloat(v)||0;renderRpSection();saveRpData();})(this.value)" onfocus="this.select()" style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;">`
     :`<span style="font-size:13px;font-weight:600;color:#1a5280;">${fmt(val)}</span>`;
 
   const rpEditStyle=rpEditMode?"border:1px solid rgba(42,110,30,0.35);background:rgba(42,110,30,0.1);color:#2a6e1e;":"border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#333330;";
@@ -1060,7 +1034,7 @@ function renderRpSection() {
       </div>
       <div style="margin:0 16px 20px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
         ${[["RESP balance today",fmt(respNow),""],
-           ["Monthly contribution",rpEditMode?`<input type="number" value="${contrib.resp}" onchange="window.rpContrib['resp']=parseFloat(this.value)||0;renderRpSection();saveRpData();" onfocus="this.select()" style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;">`:fmt(contrib.resp)+"/mo",""],
+           ["Monthly contribution",rpEditMode?`<input type="number" value="${contrib.resp}" oninput="(function(v){if(v===''||v==='-')return;window.rpContrib['resp']=parseFloat(v)||0;renderRpSection();saveRpData();})(this.value)" onfocus="this.select()" style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;">`:fmt(contrib.resp)+"/mo",""],
            ["Annual CESG (govt)","$1,000/yr","20% match on $2,500/child"],
            ["Total going in /yr",fmt(respAnnual),"contributions + CESG"]]
           .map(([label,val,note])=>`
