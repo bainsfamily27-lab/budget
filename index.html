@@ -5,11 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>House Budget</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
-  /* (all your original styles - unchanged) */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'DM Sans', sans-serif; font-weight: 400; background: #eceae4; color: #0d0d0b; min-height: 100vh; padding: 24px 20px; }
   @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
@@ -67,16 +66,38 @@
   .legend-name { color: #555550; }
   .legend-val { font-weight: 600; color: #0d0d0b; font-variant-numeric: tabular-nums; }
   .sec-title { font-family: 'DM Serif Display', serif; font-size: 1.4rem; color: #0d0d0b; margin-bottom: 16px; }
-  @media (max-width: 480px) { body { padding: 12px 10px; } .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; } .sum-card { padding: 10px 12px; } .sum-card-val { font-size: 1rem; } .rp-col-nominal { display: none !important; } .rp-portfolio-row { grid-template-columns: 2fr 1fr 1fr !important; } .rp-col-growth { display: none !important; } .line-bar-wrap { display: none !important; } .line-amount { min-width: 60px; } .grand-total-val { font-size: 1.7rem; } }
-  @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } .summary-grid { grid-template-columns: repeat(3, 1fr); } .chart-panel { position: static; } }
-  @media (max-width: 600px) { body { padding: 14px 12px; } .header { flex-direction: column; align-items: flex-start; gap: 10px; } .header h1 { font-size: 1.6rem; } .grand-total-val { font-size: 1.9rem; } .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; } .main-grid { grid-template-columns: 1fr; } .chart-panel { position: static; } .rp-col-nominal { display: none !important; } }
+  @media (max-width: 480px) {
+    body { padding: 12px 10px; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+    .sum-card { padding: 10px 12px; }
+    .sum-card-val { font-size: 1rem; }
+    .rp-col-nominal { display: none !important; }
+    .rp-portfolio-row { grid-template-columns: 2fr 1fr 1fr !important; }
+    .rp-col-growth { display: none !important; }
+    .line-bar-wrap { display: none !important; }
+    .line-amount { min-width: 60px; }
+    .grand-total-val { font-size: 1.7rem; }
+  }
+  @media (max-width: 900px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: repeat(3, 1fr); }
+    .chart-panel { position: static; }
+  }
+  @media (max-width: 600px) {
+    body { padding: 14px 12px; }
+    .header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .header h1 { font-size: 1.6rem; }
+    .grand-total-val { font-size: 1.9rem; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .main-grid { grid-template-columns: 1fr; }
+    .chart-panel { position: static; }
+    .rp-col-nominal { display: none !important; }
+  }
 </style>
 </head>
 <body>
 <div id="app"></div>
-
 <script>
-// ==================== FIREBASE & ALL STATE (moved to top) ====================
 const firebaseConfig = {
   apiKey: "AIzaSyCi-h2avvX-QTUX5zuKa4J3jaf7LQo_YG8",
   authDomain: "house-budget-aaef1.firebaseapp.com",
@@ -85,11 +106,15 @@ const firebaseConfig = {
   messagingSenderId: "116442046831",
   appId: "1:116442046831:web:a9d30c701614f885fbc89a"
 };
-const app = firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+let app, db;
+try {
+  app = firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+} catch(e) {
+  console.error("Firebase init failed:", e);
+}
 
-// DEFAULT BUDGET
-const DEFAULTS = { /* your original DEFAULTS object - unchanged */ 
+const DEFAULTS = {
   home:   { label:"Home",                icon:"🏠", color:"#2a6e1e", items:[{name:"Mortgage",amount:3800},{name:"Utilities",amount:400},{name:"Property Tax",amount:720},{name:"Home Insurance",amount:132.55}] },
   subs:   { label:"Subscriptions",       icon:"📺", color:"#1a6b8a", items:[{name:"Gym (GoodLife)",amount:152},{name:"IPTV",amount:30},{name:"Home Security",amount:68},{name:"Netflix",amount:24},{name:"Amazon",amount:29},{name:"CAA",amount:20},{name:"Lottery",amount:20},{name:"Fubo",amount:17}] },
   phone:  { label:"Internet & Phone",    icon:"📱", color:"#6b3fa0", items:[{name:"Rogers (Internet & Home)",amount:113},{name:"Telus (Cell Phones)",amount:135.60}] },
@@ -100,68 +125,890 @@ const DEFAULTS = { /* your original DEFAULTS object - unchanged */
   other:  { label:"Others",              icon:"📦", color:"#555550", items:[{name:"House Cleaning",amount:200},{name:"Presto",amount:100},{name:"Life Insurance",amount:270},{name:"Gym (GoodLife)",amount:76},{name:"Enercare",amount:64},{name:"Claude AI",amount:27}] }
 };
 const CATEGORY_ORDER = ["home","kids","subs","auto","food","phone","invest","other"];
+const fmt = n => "$" + Number(n).toLocaleString("en-CA", {minimumFractionDigits:0, maximumFractionDigits:2});
+const sanitize = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const secTotal = cat => cat.items.reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
+const grandTotal = data => Object.values(data).reduce((s,c) => s + secTotal(c), 0);
+let data = JSON.parse(JSON.stringify(DEFAULTS));
+let editMode = false, chart = null, saveTimer = null, collapsedSections = {};
 
-// FINANCIAL SUMMARY DEFAULTS
-const FS_DEFAULTS = { /* your original FS_DEFAULTS - unchanged */ 
-  investments: { retirement: { label:"Retirement", items:[{name:"BTC",amount:12000},{name:"RRSP (Rani - CIBC)",amount:9180},{name:"RSP (Manny - RBC)",amount:61072},{name:"RPP (Rani - Manulife)",amount:25979},{name:"TFSA (Manny - TD)",amount:6735},{name:"TFSA (Rani)",amount:0}]}, kids: { label:"Kids Investment", items:[{name:"RESP (Noor & Veer)",amount:39837}]}, others: { label:"Others", items:[{name:"Gold",amount:0},{name:"India Property",amount:300000}]}, cash: { label:"Cash & Savings", items:[{name:"Cash on Hand",amount:0}] } },
-  real_estate: { primary: {label:"Primary Home", value:1200000, mortgage:308000}, woodstock: {label:"Woodstock Rental (1/3)", value:216667, mortgage:169333} },
-  liabilities: { mortgages: {label:"Mortgages", items:[{name:"Primary Home Mortgage",amount:308000},{name:"Woodstock Rental (1/3 share)",amount:169333}]} }
+async function loadData() {
+  try { const snap = await db.collection("budget").doc("main").get(); if (snap.exists) data = snap.data(); } catch(e) {}
+}
+async function saveData() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => { try { await db.collection("budget").doc("main").set(data); showSaved(); } catch(e) {} }, 800);
+}
+function showSaved() {
+  const el = document.querySelector(".save-indicator");
+  if (!el) return;
+  el.classList.add("visible"); setTimeout(() => el.classList.remove("visible"), 2000);
+}
+
+function render() {
+  const total = grandTotal(data);
+  const keys = CATEGORY_ORDER.filter(k => data[k]);
+  const summaryDefs = [
+    { label:"Home",          val: secTotal(data.home),   sub:"mortgage, tax, ins." },
+    { label:"Food",          val: secTotal(data.food),   sub:"groceries + eats" },
+    { label:"Auto",          val: secTotal(data.auto),   sub:"insurance, gas, 407" },
+    { label:"Investments",   val: secTotal(data.invest), sub:"RESP + BTC" },
+    { label:"Subscriptions", val: secTotal(data.subs),   sub:"streaming + memberships" },
+    { label:"Others",        val: secTotal(data.other)+secTotal(data.phone)+secTotal(data.kids), sub:"phone, transit, etc." },
+  ];
+  document.getElementById("app").innerHTML = `
+    <div class="header">
+      <div><h1>Monthly Expenses</h1></div>
+      <div>
+        <div style="display:flex;align-items:baseline;justify-content:flex-end;gap:8px;">
+          <div class="grand-total-val" id="grand-total">${fmt(total)}</div>
+          <div style="font-size:13px;font-weight:600;color:#2a6e1e;letter-spacing:0.04em;">CAD</div>
+        </div>
+        <div class="grand-total-label">total / month</div>
+      </div>
+    </div>
+    <div class="summary-grid">${summaryDefs.map(s=>`
+      <div class="sum-card">
+        <div class="sum-card-label">${s.label}</div>
+        <div class="sum-card-val" id="sum-${s.label.toLowerCase().replace(/\s+/g,'-')}">${fmt(s.val)}</div>
+        <div class="sum-card-sub">${s.sub}</div>
+      </div>`).join("")}
+    </div>
+    <div class="toolbar">
+      <span class="save-indicator">✓ Saved to cloud</span>
+      <button class="edit-btn ${editMode?"active":""}" onclick="toggleEdit()">${editMode?"✓ Done":"✎ Edit"}</button>
+    </div>
+    <div class="main-grid">
+      <div class="categories">${keys.map((key,i) => renderSection(key, i)).join("")}</div>
+      <div class="chart-panel">
+        <div class="chart-panel-label">Breakdown</div>
+        <div class="donut-wrap"><canvas id="donutChart"></canvas></div>
+        <div class="legend" id="legend"></div>
+      </div>
+    </div>`;
+  buildChart();
+}
+
+function renderSection(key, animIdx) {
+  const cat = data[key];
+  const total = secTotal(cat);
+  const gt = grandTotal(data);
+  const pct = gt > 0 ? (total/gt*100).toFixed(1) : "0.0";
+  const catMax = Math.max(...cat.items.map(i => parseFloat(i.amount)||0), 1);
+  const collapsed = collapsedSections[key];
+  return `
+    <div class="section" id="sec-${key}" style="animation-delay:${animIdx*0.04}s">
+      <div class="section-header ${collapsed?"collapsed":""}" onclick="toggleSection('${key}')">
+        <div class="section-title-wrap">
+          <div class="section-icon" style="background:${cat.color}18">${cat.icon}</div>
+          <span class="section-name">${cat.label}</span>
+        </div>
+        <div class="section-right">
+          <span style="font-size:11px;color:#888">${pct}%</span>
+          <span class="section-total" id="sectotal-${key}" style="color:${cat.color}">${fmt(total)}</span>
+          <span class="chevron ${collapsed?"collapsed":""}">▾</span>
+        </div>
+      </div>
+      ${!collapsed ? `<div class="section-body">
+        ${cat.items.map((item,idx) => `
+          <div class="line-item">
+            ${editMode
+              ? `<div style="display:flex;align-items:center;gap:6px;flex:1">
+                   <button class="remove-btn" onclick="removeItem('${key}',${idx})">×</button>
+                   <input class="name-input" type="text" value="${item.name.replace(/"/g,'&quot;')}" oninput="updateName('${key}',${idx},this.value)">
+                 </div>`
+              : `<span class="line-name">${sanitize(item.name)}</span>`}
+            <div class="line-right">
+              <div class="line-bar-wrap"><div class="line-bar" style="width:${Math.max(4,(parseFloat(item.amount)||0)/catMax*100).toFixed(0)}%;background:${cat.color}"></div></div>
+              ${editMode
+                ? `<input class="amount-input" type="number" value="${item.amount}" oninput="updateAmount('${key}',${idx},this.value)" onfocus="this.select()">`
+                : `<span class="line-amount">${fmt(item.amount)}</span>`}
+            </div>
+          </div>`).join("")}
+        ${editMode ? `<button class="add-item-btn" onclick="addItem('${key}')">+ Add item</button>` : ""}
+      </div>` : ""}
+    </div>`;
+}
+
+function buildChart() {
+  const keys = CATEGORY_ORDER.filter(k => data[k]);
+  const values = keys.map(k => secTotal(data[k]));
+  const colors = keys.map(k => data[k].color);
+  const labels = keys.map(k => data[k].label);
+  const total = grandTotal(data);
+  const canvas = document.getElementById("donutChart");
+  if (!canvas) return;
+  if (chart) { try { chart.destroy(); } catch(e) {} chart = null; }
+  chart = new Chart(canvas, {
+    type: "doughnut",
+    data: { labels, datasets: [{ data: values, backgroundColor: colors.map(c=>c+"cc"), borderColor: colors, borderWidth: 1.5, hoverOffset: 6 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: "68%",
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)} (${total>0?(ctx.raw/total*100).toFixed(1):0}%)` },
+        backgroundColor: "#fff", borderColor: "rgba(0,0,0,0.1)", borderWidth: 1, titleColor: "#0d0d0b", bodyColor: "#555550", padding: 10
+      }}
+    }
+  });
+  const legend = document.getElementById("legend");
+  if (legend) legend.innerHTML = keys.map(k=>`
+    <div class="legend-item">
+      <div class="legend-left"><div class="legend-dot" style="background:${data[k].color}"></div><span class="legend-name">${data[k].label}</span></div>
+      <span class="legend-val">${fmt(secTotal(data[k]))}</span>
+    </div>`).join("");
+}
+
+let budgetEditUnlocked = false;
+window.toggleEdit = () => {
+  if (!editMode) {
+    if (budgetEditUnlocked) { editMode = true; render(); }
+    else {
+      const pwd = prompt("Enter password to edit:");
+      if (pwd === "ajax123") { budgetEditUnlocked = true; editMode = true; render(); }
+      else if (pwd !== null) alert("Incorrect password");
+    }
+  } else { editMode = false; budgetEditUnlocked = false; render(); }
+};
+window.toggleSection = (key) => {
+  collapsedSections[key] = !collapsedSections[key];
+  const sec = document.getElementById(`sec-${key}`);
+  if (sec) sec.outerHTML = renderSection(key, 0);
+};
+window.updateAmount = (key, idx, val) => {
+  const parsed = parseFloat(val);
+  if (val===''||val==='-') return;
+  data[key].items[idx].amount = isNaN(parsed) ? 0 : parsed;
+  refreshTotals(key); saveData();
+};
+window.updateName = (key, idx, val) => { data[key].items[idx].name = val; saveData(); };
+window.addItem = (key) => { data[key].items.push({name:"New item",amount:0}); render(); saveData(); };
+window.removeItem = (key, idx) => { data[key].items.splice(idx, 1); render(); saveData(); };
+function refreshTotals(key) {
+  const st = document.getElementById(`sectotal-${key}`);
+  if (st) st.textContent = fmt(secTotal(data[key]));
+  const gt = document.getElementById("grand-total");
+  if (gt) gt.textContent = fmt(grandTotal(data));
+  const othersTotal = secTotal(data.other)+secTotal(data.phone)+secTotal(data.kids);
+  document.querySelectorAll("[id^='sum-']").forEach(el => {
+    if (el.id==="sum-home")          el.textContent = fmt(secTotal(data.home));
+    if (el.id==="sum-food")          el.textContent = fmt(secTotal(data.food));
+    if (el.id==="sum-auto")          el.textContent = fmt(secTotal(data.auto));
+    if (el.id==="sum-investments")   el.textContent = fmt(secTotal(data.invest));
+    if (el.id==="sum-subscriptions") el.textContent = fmt(secTotal(data.subs));
+    if (el.id==="sum-others")        el.textContent = fmt(othersTotal);
+  });
+  buildChart();
+}
+
+window.addEventListener('DOMContentLoaded', async function() {
+  // Render immediately with defaults so page isn't blank
+  try { render(); } catch(e) { console.error("Initial render failed:", e); }
+
+  // Load all data in parallel then re-render everything
+  try {
+    await Promise.all([loadData(), loadFsData(), loadRpData(), loadWfData()]);
+    try { render(); } catch(e) { console.error("Post-load render failed:", e); }
+    try { injectSections(); } catch(e) { console.error("injectSections failed:", e); }
+  } catch(e) {
+    console.warn("Data load failed, using defaults:", e);
+    // Still inject sections with default data
+    try { injectSections(); } catch(e2) {}
+  }
+});
+
+// ============================================================
+// HELPERS & SHARED STATE
+// ============================================================
+let siteEditUnlocked = false;
+function requireEditPassword(cb) {
+  if (siteEditUnlocked) { cb(); return; }
+  const pwd = prompt("Enter password to edit:");
+  if (pwd === "ajax123") { siteEditUnlocked = true; cb(); }
+  else if (pwd !== null) alert("Incorrect password");
+}
+
+let rpNeedsRefresh = false;
+function refreshRetirementIfVisible() {
+  const c = document.getElementById("rp-container");
+  if (c) renderRpSection(); else rpNeedsRefresh = true;
+}
+
+function getRpBalances() {
+  const ret    = fsData.investments.retirement.items;
+  const others = fsData.investments.others.items;
+  const getAmt = (items, names) => {
+    const it = items.find(i => names.some(n => i.name.toUpperCase().includes(n.toUpperCase())));
+    return (it && it.amount !== undefined) ? parseFloat(it.amount) : null;
+  };
+  return {
+    rrsp:  ret.filter(i => i.name.toUpperCase().includes('RRSP') || i.name.toUpperCase().includes('RSP')).reduce((s,i)=>s+(parseFloat(i.amount)||0),0),
+    tfsa:  ret.filter(i => i.name.toUpperCase().includes('TFSA')).reduce((s,i)=>s+(parseFloat(i.amount)||0),0),
+    rpp:   getAmt(ret, ['RPP']),
+    btc:   getAmt(ret, ['BTC']),
+    india: getAmt(others, ['India']),
+    wood:  fsData.real_estate && fsData.real_estate.woodstock ? parseFloat(fsData.real_estate.woodstock.value)||0 : null,
+    resp:  fsData.investments.kids && fsData.investments.kids.items[0] ? parseFloat(fsData.investments.kids.items[0].amount)||0 : null,
+  };
+}
+
+// ============================================================
+// TFSA SEQUENCING — single source of truth used by both
+// Retirement Plan and Wedding Fund sections.
+// TFSA grows at 5%, funds Noor's wedding (2048) first,
+// then Veer's (2050), remainder rolls into retirement (2051).
+// ============================================================
+function calcTfsaSequence() {
+  const tfsaNow = getTfsaBalance();
+  const r = 0.05, inf = 0.025, baseYear = 2026, retYear = 2051;
+  const noorYear = new Date(wfData.noor.born).getFullYear() + wfData.noor.weddingAge;
+  const veerYear = new Date(wfData.veer.born).getFullYear() + wfData.veer.weddingAge;
+  const noorGoal = wfData.noor.goalToday * Math.pow(1+inf, noorYear - baseYear);
+  const veerGoal = wfData.veer.goalToday * Math.pow(1+inf, veerYear - baseYear);
+  // Step 1: grow to Noor's wedding, pay her share
+  const tfsaAtNoor  = tfsaNow  * Math.pow(1+r, noorYear - baseYear);
+  const noorSurplus = tfsaAtNoor - noorGoal;
+  const afterNoor   = Math.max(0, noorSurplus);
+  // Step 2: remainder grows to Veer's wedding, pay his share
+  const tfsaAtVeer  = afterNoor * Math.pow(1+r, veerYear - noorYear);
+  const veerSurplus = tfsaAtVeer - veerGoal;
+  const afterVeer   = Math.max(0, veerSurplus);
+  // Step 3: remainder grows to retirement
+  const tfsaAtRetirement = afterVeer * Math.pow(1+r, retYear - veerYear);
+  return { tfsaNow, noorYear, veerYear, retYear,
+           noorGoal, veerGoal,
+           tfsaAtNoor, noorSurplus, afterNoor,
+           tfsaAtVeer, veerSurplus, afterVeer,
+           tfsaAtRetirement };
+}
+
+// ============================================================
+// FINANCIAL SUMMARY
+// ============================================================
+const FS_DEFAULTS = {
+  investments: {
+    retirement: { label:"Retirement", items:[
+      {name:"BTC",amount:12000},{name:"RRSP (Rani - CIBC)",amount:9180},
+      {name:"RSP (Manny - RBC)",amount:61072},{name:"RPP (Rani - Manulife)",amount:25979},
+      {name:"TFSA (Manny - TD)",amount:6735},{name:"TFSA (Rani)",amount:0}]},
+    kids:    { label:"Kids Investment", items:[{name:"RESP (Noor & Veer)",amount:39837}]},
+    others:  { label:"Others",   items:[{name:"Gold",amount:0},{name:"India Property",amount:300000}]},
+    cash:    { label:"Cash & Savings", items:[{name:"Cash on Hand",amount:0}]}
+  },
+  real_estate: {
+    primary:   {label:"Primary Home",           value:1200000, mortgage:308000},
+    woodstock: {label:"Woodstock Rental (1/3)", value:216667,  mortgage:169333}
+  },
+  liabilities: {
+    mortgages: {label:"Mortgages", items:[
+      {name:"Primary Home Mortgage",amount:308000},
+      {name:"Woodstock Rental (1/3 share)",amount:169333}]}
+  }
 };
 
-// WEDDING FUND DEFAULTS
+let fsData = JSON.parse(JSON.stringify(FS_DEFAULTS));
+let fsEditMode = false, fsSaveTimer = null;
+const fsFmt      = n => "$" + Number(n).toLocaleString("en-CA",{minimumFractionDigits:0,maximumFractionDigits:0});
+const fsInvTotal = () => Object.values(fsData.investments).reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+(parseFloat(i.amount)||0),0),0);
+const fsLibTotal = () => Object.values(fsData.liabilities).reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+(parseFloat(i.amount)||0),0),0);
+const fsPrimaryEquity   = () => fsData.real_estate.primary.value   - fsData.real_estate.primary.mortgage;
+const fsWoodstockEquity = () => fsData.real_estate.woodstock.value - fsData.real_estate.woodstock.mortgage;
+const fsNwWith    = () => fsInvTotal() + fsPrimaryEquity() + fsWoodstockEquity() - fsLibTotal();
+const fsNwWithout = () => fsInvTotal() + fsWoodstockEquity() - fsData.liabilities.mortgages.items[1].amount;
+
+async function loadFsData() {
+  try {
+    const snap = await db.collection("budget").doc("financialsummary").get();
+    if (snap.exists) {
+      const d = snap.data();
+      if (d.investments) fsData.investments = d.investments;
+      if (d.real_estate) fsData.real_estate = d.real_estate;
+      if (d.liabilities) fsData.liabilities = d.liabilities;
+    }
+  } catch(e) {}
+}
+async function saveFsData() {
+  clearTimeout(fsSaveTimer);
+  fsSaveTimer = setTimeout(async () => {
+    try {
+      await db.collection("budget").doc("financialsummary").set(fsData);
+      const el = document.getElementById("fs-saved");
+      if (el) { el.style.opacity=1; setTimeout(()=>{el.style.opacity=0;},2000); }
+    } catch(e) {}
+  }, 800);
+}
+
+let rpSaveTimer = null;
+async function loadRpData() {
+  try {
+    const snap = await db.collection("budget").doc("retirementplan").get();
+    if (snap.exists) {
+      const d = snap.data();
+      if (d.contrib)     window.rpContrib   = d.contrib;
+      if (d.retExpenses) window.retExpenses = d.retExpenses;
+    }
+  } catch(e) {}
+}
+async function saveRpData() {
+  clearTimeout(rpSaveTimer);
+  rpSaveTimer = setTimeout(async () => {
+    try {
+      await db.collection("budget").doc("retirementplan").set({contrib: window.rpContrib||{}, retExpenses: window.retExpenses||[]});
+      const el = document.getElementById("rp-saved");
+      if (el) { el.style.opacity=1; setTimeout(()=>{el.style.opacity=0;},2000); }
+    } catch(e) {}
+  }, 800);
+}
+
+window.updateFsInv = (catKey, idx, field, val) => {
+  if (field==="amount") { const p=parseFloat(val); if(val===''||val==='-')return; fsData.investments[catKey].items[idx].amount=isNaN(p)?0:p; }
+  else { fsData.investments[catKey].items[idx].name=val; }
+  saveFsData(); renderFsSection(); refreshRetirementIfVisible();
+};
+window.updateFsRe = (key, field, val) => {
+  const p=parseFloat(val); if(val===''||val==='-')return;
+  fsData.real_estate[key][field]=isNaN(p)?0:p;
+  saveFsData(); renderFsSection(); refreshRetirementIfVisible();
+};
+window.updateFsLib = (idx, field, val) => {
+  if (field==="amount") {
+    const p=parseFloat(val); if(val===''||val==='-')return;
+    fsData.liabilities.mortgages.items[idx].amount=isNaN(p)?0:p;
+    if(idx===0) fsData.real_estate.primary.mortgage=isNaN(p)?0:p;
+    if(idx===1) fsData.real_estate.woodstock.mortgage=isNaN(p)?0:p;
+  } else { fsData.liabilities.mortgages.items[idx].name=val; }
+  saveFsData(); renderFsSection(); refreshRetirementIfVisible();
+};
+window.addFsInvItem = (catKey) => { fsData.investments[catKey].items.push({name:"New item",amount:0}); renderFsSection(); saveFsData(); };
+window.toggleFsEdit = () => requireEditPassword(() => { fsEditMode=!fsEditMode; renderFsSection(); });
+
+// ============================================================
+// INJECT SECTIONS  — THE FIX: wf-container included here
+// ============================================================
+function injectSections() {
+  if (document.getElementById('private-wrapper')) {
+    renderFsSection(); renderRpSection(); renderWfSection(); return;
+  }
+  const appEl = document.getElementById("app");
+  if (!appEl) return;
+  const wrapper = document.createElement("div");
+  wrapper.id = "private-wrapper";
+  wrapper.style.cssText = "margin-top:32px;";
+  wrapper.innerHTML = `
+    <div class="sec-title">Financial Summary</div>
+    <div id="fs-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;margin-bottom:32px;"></div>
+    <div class="sec-title">Retirement Plan</div>
+    <div id="rp-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;margin-bottom:32px;"></div>
+    <div class="sec-title">Wedding Fund</div>
+    <div id="wf-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;margin-bottom:32px;"></div>`;
+  appEl.appendChild(wrapper);
+  Promise.all([loadFsData(), loadRpData(), loadWfData()]).then(() => {
+    renderFsSection(); renderRpSection(); renderWfSection();
+  });
+}
+
+// ============================================================
+// RENDER FINANCIAL SUMMARY
+// ============================================================
+function renderFsSection() {
+  const container = document.getElementById("fs-container");
+  if (!container) return;
+  const invTotal=fsInvTotal(), libTotal=fsLibTotal();
+  const primEquity=fsPrimaryEquity(), woodEquity=fsWoodstockEquity();
+  const nwWith=fsNwWith(), nwWithout=fsNwWithout();
+  const totalAssets=invTotal+primEquity+woodEquity;
+
+  const invSections = Object.keys(fsData.investments).map(catKey => {
+    const cat=fsData.investments[catKey];
+    const catTotal=cat.items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+    const rows=cat.items.map((item,idx)=>{
+      const nameEl=fsEditMode?`<input type="text" value="${item.name.replace(/"/g,'&quot;')}" oninput="updateFsInv('${catKey}',${idx},'name',this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-family:inherit;color:#0d0d0b;outline:none;flex:1;min-width:0;padding:1px 0;">`:
+        `<span style="font-size:12px;color:#666;">${sanitize(item.name)}</span>`;
+      const amtEl=fsEditMode?`<input type="number" value="${item.amount}" oninput="updateFsInv('${catKey}',${idx},'amount',this.value)" onfocus="this.select()" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;font-family:inherit;color:#1a5280;width:100px;text-align:right;outline:none;padding:1px 0;">`:
+        `<span style="font-size:12px;color:#777;font-variant-numeric:tabular-nums;">${fsFmt(item.amount)}</span>`;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 16px 4px 32px;margin-left:16px;border-left:2px solid rgba(26,82,128,0.1);" onmouseover="this.style.background='#f8f8ff'" onmouseout="this.style.background='transparent'">${nameEl}<div style="margin-left:12px;flex-shrink:0;">${amtEl}</div></div>`;
+    }).join('');
+    const addBtn=fsEditMode?`<div style="padding:4px 16px 8px 32px;"><button onclick="addFsInvItem('${catKey}')" style="background:none;border:1px dashed rgba(0,0,0,0.15);border-radius:5px;font-size:11px;color:#888;cursor:pointer;padding:3px 10px;font-family:inherit;">+ Add item</button></div>`:'';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px 4px;border-top:0.5px solid rgba(0,0,0,0.05);">
+      <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#444;">${cat.label}</span>
+      <span style="font-size:13px;font-weight:700;color:#1a5280;font-variant-numeric:tabular-nums;">${fsFmt(catTotal)}</span>
+    </div>${rows}${addBtn}`;
+  }).join('');
+
+  const reRows=Object.keys(fsData.real_estate).map(key=>{
+    const re=fsData.real_estate[key], equity=re.value-re.mortgage;
+    if(fsEditMode) return `<div style="padding:6px 16px 6px 32px;margin-left:16px;border-left:2px solid rgba(42,110,30,0.12);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;"><span style="font-size:12px;color:#555;">${re.label}</span><span style="font-size:12px;color:#2a6e1e;">${fsFmt(equity)}</span></div>
+      <div style="display:flex;gap:16px;padding-left:8px;">
+        <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:11px;color:#888;">Value</span><input type="number" value="${re.value}" oninput="updateFsRe('${key}','value',this.value)" onfocus="this.select()" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:12px;font-family:inherit;color:#0d0d0b;width:90px;outline:none;padding:1px 0;"></div>
+        <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:11px;color:#a02020;">Mortgage</span><input type="number" value="${re.mortgage}" oninput="updateFsRe('${key}','mortgage',this.value)" onfocus="this.select()" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:12px;font-family:inherit;color:#a02020;width:90px;outline:none;padding:1px 0;"></div>
+      </div></div>`;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 16px 5px 32px;margin-left:16px;border-left:2px solid rgba(42,110,30,0.12);" onmouseover="this.style.background='#f8fff8'" onmouseout="this.style.background='transparent'">
+      <div><span style="font-size:12px;color:#555;">${re.label}</span><span style="font-size:10px;color:#aaa;margin-left:8px;">${fsFmt(re.value)} − ${fsFmt(re.mortgage)}</span></div>
+      <span style="font-size:12px;color:#2a6e1e;font-variant-numeric:tabular-nums;flex-shrink:0;margin-left:12px;">${fsFmt(equity)}</span></div>`;
+  }).join('');
+
+  const libRows=fsData.liabilities.mortgages.items.map((item,idx)=>{
+    const nameEl=fsEditMode?`<input type="text" value="${item.name.replace(/"/g,'&quot;')}" oninput="updateFsLib(${idx},'name',this.value)" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-family:inherit;color:#0d0d0b;outline:none;flex:1;min-width:0;padding:1px 0;">`:
+      `<span style="font-size:12px;color:#666;">${sanitize(item.name)}</span>`;
+    const amtEl=fsEditMode?`<input type="number" value="${item.amount}" oninput="updateFsLib(${idx},'amount',this.value)" onfocus="this.select()" style="background:transparent;border:none;border-bottom:1px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;font-family:inherit;color:#a02020;width:100px;text-align:right;outline:none;padding:1px 0;">`:
+      `<span style="font-size:12px;color:#a02020;font-variant-numeric:tabular-nums;">${fsFmt(item.amount)}</span>`;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 16px 4px 32px;margin-left:16px;border-left:2px solid rgba(160,32,32,0.1);" onmouseover="this.style.background='#fff8f8'" onmouseout="this.style.background='transparent'">${nameEl}<div style="margin-left:12px;flex-shrink:0;">${amtEl}</div></div>`;
+  }).join('');
+
+  const editStyle=fsEditMode?"border:1px solid rgba(42,110,30,0.35);background:rgba(42,110,30,0.1);color:#2a6e1e;":"border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#333330;";
+  container.innerHTML=`
+    <div style="padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.08);display:flex;justify-content:space-between;align-items:center;background:#fafaf8;">
+      <span style="font-size:11px;color:#aaa;">All values in CAD</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="fs-saved" style="font-size:12px;color:#2a6e1e;opacity:0;transition:opacity 0.3s;">✓ Saved</span>
+        <button onclick="toggleFsEdit()" style="font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;${editStyle}">${fsEditMode?"✓ Done":"✎ Edit"}</button>
+      </div>
+    </div>
+    <div style="padding:20px 16px;border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#aaa;margin-bottom:12px;">Net Worth</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+        <div style="background:#f0f7ee;border:1px solid rgba(42,110,30,0.2);border-radius:10px;padding:14px 16px;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#2a6e1e;margin-bottom:6px;">Including Primary Home</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:1.8rem;color:#2a6e1e;line-height:1;">${fsFmt(nwWith)}</div>
+          <div style="font-size:11px;color:#6a9e6a;margin-top:4px;">all assets − all liabilities</div>
+        </div>
+        <div style="background:#eef4fa;border:1px solid rgba(26,82,128,0.2);border-radius:10px;padding:14px 16px;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#1a5280;margin-bottom:6px;">Excluding Primary Home</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:1.8rem;color:#1a5280;line-height:1;">${fsFmt(nwWithout)}</div>
+          <div style="font-size:11px;color:#6a82ae;margin-top:4px;">investments + Woodstock equity</div>
+        </div>
+      </div>
+    </div>
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px 8px;">
+        <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Assets</span>
+        <span style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#2a6e1e;">${fsFmt(totalAssets)}</span>
+      </div>
+      <div style="margin:0 16px 12px;background:#f8f9ff;border:1px solid rgba(26,82,128,0.12);border-radius:8px;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 16px;background:rgba(26,82,128,0.06);border-bottom:1px solid rgba(26,82,128,0.1);">
+          <span style="font-size:12px;font-weight:600;color:#1a5280;">📊 Investments</span>
+          <span style="font-size:13px;font-weight:700;color:#1a5280;">${fsFmt(invTotal)}</span>
+        </div>${invSections}
+      </div>
+      <div style="margin:0 16px 16px;background:#f8fff8;border:1px solid rgba(42,110,30,0.12);border-radius:8px;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 16px;background:rgba(42,110,30,0.06);border-bottom:1px solid rgba(42,110,30,0.1);">
+          <span style="font-size:12px;font-weight:600;color:#2a6e1e;">🏠 Real Estate Equity</span>
+          <span style="font-size:13px;font-weight:700;color:#2a6e1e;">${fsFmt(primEquity+woodEquity)}</span>
+        </div>${reRows}
+      </div>
+    </div>
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px 8px;">
+        <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Liabilities</span>
+        <span style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#a02020;">${fsFmt(libTotal)}</span>
+      </div>
+      <div style="margin:0 16px 16px;background:#fff8f8;border:1px solid rgba(160,32,32,0.12);border-radius:8px;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 16px;background:rgba(160,32,32,0.06);border-bottom:1px solid rgba(160,32,32,0.1);">
+          <span style="font-size:12px;font-weight:600;color:#a02020;">🏦 Mortgages</span>
+          <span style="font-size:13px;font-weight:700;color:#a02020;">${fsFmt(libTotal)}</span>
+        </div>${libRows}
+      </div>
+    </div>
+    <div style="padding:16px 20px;background:#f8f7f4;">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;text-align:center;">
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:2px;">Total Assets</span>
+          <span style="font-weight:700;color:#2a6e1e;font-size:15px;">${fsFmt(totalAssets)}</span>
+        </div>
+        <span style="font-size:18px;color:#ccc;padding:0 4px;">−</span>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:2px;">Total Liabilities</span>
+          <span style="font-weight:700;color:#a02020;font-size:15px;">${fsFmt(libTotal)}</span>
+        </div>
+        <span style="font-size:18px;color:#ccc;padding:0 4px;">=</span>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:2px;">Net Worth</span>
+          <span style="font-weight:700;color:#2a6e1e;font-size:18px;font-family:'DM Serif Display',serif;">${fsFmt(nwWith)}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ============================================================
+// RENDER RETIREMENT PLAN
+// ============================================================
+let rpEditMode = false;
+function renderRpSection() {
+  const container = document.getElementById("rp-container");
+  if (!container) return;
+  rpNeedsRefresh = false;
+  const inf=0.025, r=0.05, re=0.025, btcR=0.08, yrs=25;
+  const defl=Math.pow(1+inf,yrs);
+  const fv=(pv,cMo,rate,n)=>{const r=rate/12,nm=n*12;return pv*Math.pow(1+r,nm)+cMo*(Math.pow(1+r,nm)-1)/r;}; // monthly compounding
+  const fmt=n=>"$"+Math.round(n).toLocaleString("en-CA");
+  const fmtM=n=>fmt(n)+"/mo";
+  const contrib=window.rpContrib||{rrsp:1250,tfsa:1208,rpp:500,resp:580};
+  window.rpContrib=contrib;
+  const bal=getRpBalances();
+  const rrspNow=(bal.rrsp>0)?bal.rrsp:70252;
+  const tfsaNow=(bal.tfsa>0)?bal.tfsa:6735;
+  const rppNow=(bal.rpp!=null)?bal.rpp:25979;
+  const btcNow=(bal.btc!=null)?bal.btc:12000;
+  const indiaNow=(bal.india!=null)?bal.india:300000;
+  const woodNow=(bal.wood!=null)?bal.wood:216667;
+  const respNow=(bal.resp!=null)?bal.resp:39837;
+  const rrsp65=fv(rrspNow,contrib.rrsp,r,yrs);
+  // TFSA: grows sequentially — funds Noor (2048) then Veer (2050), remainder to retirement
+  const tfsaSeq=calcTfsaSequence();
+  const tfsa65=tfsaSeq.tfsaAtRetirement; // what's left for retirement after both weddings
+  const rpp65=fv(rppNow,contrib.rpp,r,yrs);
+  const btc65=btcNow*Math.pow(1+btcR,yrs);
+  const india65=indiaNow*Math.pow(1+re,yrs);
+  const wood65=woodNow*Math.pow(1+re,yrs);
+  const liquid=rrsp65+tfsa65+rpp65+btc65+india65+wood65;
+  const liqReal=liquid/defl;
+  const nyr=12,vyr=14,cesg=1000,respAnnual=contrib.resp*12+cesg;
+  const respNoor=fv(respNow,respAnnual/12,r,nyr);
+  const cn=120000*Math.pow(1+inf,nyr);
+  const cv=120000*Math.pow(1+inf,vyr);
+  const rem=Math.max(respNoor-cn,0);
+  const respVeer=fv(rem,respAnnual/12,r,2);
+  const veerGap=Math.max(cv-respVeer,0);
+  const topUp=veerGap>0?Math.round(veerGap*(r/12)/(Math.pow(1+r/12,vyr*12)-1)):0;
+  const govtMo=3500;
+  if(!window.retExpenses||window.retExpenses.length===0){
+    window.retExpenses=[
+      {cat:"Housing",note:"prop. tax + utilities + insurance",amt:1382},
+      {cat:"Food & Groceries",note:"2 people, no kids",amt:800},
+      {cat:"Auto",note:"insurance + gas, less driving",amt:500},
+      {cat:"Health & Medical",note:"prescriptions, dental, vision",amt:300},
+      {cat:"Travel & Leisure",note:"trips, dining out, hobbies",amt:800},
+      {cat:"Subscriptions & Entertainment",note:"streaming, memberships",amt:200},
+      {cat:"Personal Care",note:"grooming, clothing",amt:200},
+      {cat:"Gifts & Family",note:"kids, grandkids, occasions",amt:300},
+    ];
+  }
+  const retTotal=window.retExpenses.reduce((s,r)=>s+(parseFloat(r.amt)||0),0);
+  const fromPort=Math.max(0,retTotal-govtMo)*12;
+  const needed4pct=fromPort/0.04;
+  const surplus=liqReal-needed4pct;
+  const contribInp=(key,val)=>rpEditMode
+    ?`<input type="number" value="${val}" oninput="(function(v){if(v===''||v==='-')return;window.rpContrib['${key}']=parseFloat(v)||0;renderRpSection();saveRpData();})(this.value)" onfocus="this.select()" style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;">`
+    :`<span style="font-size:13px;font-weight:600;color:#1a5280;">${fmtM(val)}</span>`;
+  const expInp=(idx,val)=>rpEditMode
+    ?`<input type="number" value="${val}" oninput="(function(v){if(v===''||v==='-')return;window.retExpenses[${idx}].amt=parseFloat(v)||0;renderRpSection();saveRpData();})(this.value)" onfocus="this.select()" style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;">`
+    :`<span style="font-size:13px;font-weight:600;color:#1a5280;">${fmt(val)}</span>`;
+  const rpEditStyle=rpEditMode?"border:1px solid rgba(42,110,30,0.35);background:rgba(42,110,30,0.1);color:#2a6e1e;":"border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#333330;";
+  const tableRows=[
+    {name:"RRSP",growth:"5% / 2.5% real",real:rrsp65/defl,key:"rrsp",contrib:contrib.rrsp},
+    {name:"TFSA (post-weddings)",growth:"5% lump-sum",real:tfsa65/defl,key:null,contrib:null},
+    {name:"RPP — Rani",growth:"5% / 2.5% real",real:rpp65/defl,key:"rpp",contrib:contrib.rpp},
+    {name:"BTC (hold)",growth:"8% / 5.5% real",real:btc65/defl,key:null,contrib:null},
+    {name:"India (sell at 65)",growth:"2.5% = inflation",real:india65/defl,key:null,contrib:null},
+    {name:"Woodstock 1/3",growth:"2.5% = inflation",real:wood65/defl,key:null,contrib:null},
+  ];
+  container.innerHTML=`
+    <div style="padding:10px 16px;border-bottom:1px solid rgba(0,0,0,0.08);background:#fafaf8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <span style="font-size:11px;color:#aaa;">Today's purchasing power · 2.5% inflation · 25 years</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span id="rp-saved" style="font-size:12px;color:#2a6e1e;opacity:0;transition:opacity 0.3s;">✓ Saved</span>
+        <button onclick="toggleRpEdit()" style="font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;${rpEditStyle}">${rpEditMode?"✓ Done":"✎ Edit"}</button>
+      </div>
+    </div>
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:14px 16px 6px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;">
+        <span style="font-size:14px;font-weight:600;color:#0d0d0b;">① Monthly Expenses at 65</span>
+        <span style="font-size:11px;color:#888;">in today's dollars</span>
+      </div>
+      <div style="margin:0 16px 16px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;background:#fafaf8;padding:8px 14px;border-bottom:1px solid rgba(0,0,0,0.08);">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;">Category</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;text-align:center;" class="rp-col-growth">Note</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#1a5280;text-align:right;">Monthly</span>
+        </div>
+        ${window.retExpenses.map((row,idx)=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:8px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;" onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+            <span style="font-size:13px;color:#333;">${row.cat}</span>
+            <span style="font-size:11px;color:#aaa;text-align:center;" class="rp-col-growth">${row.note}</span>
+            <div style="text-align:right;">${expInp(idx,row.amt)}</div>
+          </div>`).join('')}
+        <div style="padding:10px 14px;background:#f4f3ef;border-top:1px solid rgba(0,0,0,0.1);">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total monthly expenses</span><span style="font-size:14px;font-weight:700;color:#0d0d0b;font-family:'DM Serif Display',serif;">${fmt(retTotal)}/mo</span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;color:#2a6e1e;">CPP + OAS (guaranteed, inflation-indexed)</span><span style="font-size:12px;font-weight:600;color:#2a6e1e;">− $3,500/mo</span></div>
+          <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:0.5px solid rgba(0,0,0,0.15);"><span style="font-size:13px;font-weight:600;color:#1a5280;">Needed from portfolio</span><span style="font-size:14px;font-weight:700;color:#1a5280;font-family:'DM Serif Display',serif;">${fmt(fromPort/12)}/mo</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:14px 16px 6px;"><span style="font-size:14px;font-weight:600;color:#0d0d0b;">② Portfolio at 65</span><span style="font-size:11px;color:#888;margin-left:8px;">all in today's dollars</span></div>
+      <div style="margin:0 16px 16px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;background:#fafaf8;padding:8px 12px;border-bottom:1px solid rgba(0,0,0,0.08);" class="rp-portfolio-row">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;">Asset</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#888;text-align:center;" class="rp-col-growth">Growth</span>
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#1a5280;text-align:right;">Monthly / Today's $</span>
+        </div>
+        ${tableRows.map(row=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:8px 12px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;" class="rp-portfolio-row" onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+            <span style="font-size:13px;color:#333;">${row.name}</span>
+            <span style="font-size:11px;color:#888;text-align:center;" class="rp-col-growth">${row.growth}</span>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+              ${row.key?contribInp(row.key,row.contrib):'<span style="font-size:12px;color:#ccc;">—</span>'}
+              <span style="font-size:12px;font-weight:600;color:#2a6e1e;">${fmt(row.real)}</span>
+            </div>
+          </div>`).join('')}
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:9px 12px;background:#f4f3ef;border-top:1px solid rgba(0,0,0,0.1);" class="rp-portfolio-row">
+          <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total liquid</span><span></span>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+            <span style="font-size:12px;font-weight:600;color:#1a5280;">${fmtM(contrib.rrsp+contrib.rpp)} contributions (excl. TFSA)</span>
+            <span style="font-size:13px;font-weight:700;color:#2a6e1e;">${fmt(liqReal)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:14px 16px 6px;"><span style="font-size:14px;font-weight:600;color:#0d0d0b;">③ Retirement Readiness</span></div>
+      <div style="margin:0 16px 12px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
+        <div style="padding:10px 14px;background:#fafaf8;border-bottom:1px solid rgba(0,0,0,0.06);">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:8px;">Step 1 — Monthly Gap</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:13px;color:#333;">Expenses</span><span style="font-size:13px;font-weight:600;color:#0d0d0b;">${fmt(retTotal)}/mo</span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:13px;color:#2a6e1e;">CPP + OAS</span><span style="font-size:13px;font-weight:600;color:#2a6e1e;">− $3,500/mo</span></div>
+          <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:1px solid rgba(0,0,0,0.08);"><span style="font-size:13px;font-weight:600;color:#1a5280;">Gap from portfolio</span><span style="font-size:14px;font-weight:700;color:#1a5280;">${fmt(fromPort/12)}/mo = ${fmt(fromPort)}/yr</span></div>
+        </div>
+        <div style="padding:10px 14px;background:#fff;border-bottom:1px solid rgba(0,0,0,0.06);">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:8px;">Step 2 — Portfolio Required (4% Rule)</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:13px;color:#333;">${fmt(fromPort)}/yr ÷ 4%</span><span style="font-size:14px;font-weight:700;color:#1a5280;">${fmt(needed4pct)}</span></div>
+          <div style="font-size:11px;color:#aaa;">4% rule = safe withdrawal — portfolio lasts 30+ years</div>
+        </div>
+        <div style="padding:10px 14px;background:#fff;border-bottom:1px solid rgba(0,0,0,0.06);">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:8px;">Step 3 — What You'll Have</div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;margin-bottom:6px;">
+            <span></span><span style="font-size:10px;color:#2a6e1e;font-weight:600;text-align:right;">Today's $</span>
+            <span style="font-size:10px;color:#aaa;text-align:right;">2051 actual</span>
+          </div>
+          ${[["RRSP+TFSA+RPP+BTC",(rrsp65+tfsa65+rpp65+btc65)/defl,rrsp65+tfsa65+rpp65+btc65],
+             ["India property",india65/defl,india65],
+             ["Woodstock 1/3",wood65/defl,wood65]].map(([n,real,nom])=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center;margin-bottom:3px;">
+            <span style="font-size:12px;color:#555;">${n}</span>
+            <span style="font-size:12px;font-weight:600;color:#2a6e1e;text-align:right;">${fmt(real)}</span>
+            <span style="font-size:11px;color:#aaa;text-align:right;">${fmt(nom)}</span>
+          </div>`).join('')}
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center;padding-top:6px;border-top:1px solid rgba(0,0,0,0.08);">
+            <span style="font-size:13px;font-weight:600;color:#2a6e1e;">Total liquid</span>
+            <span style="font-size:13px;font-weight:700;color:#2a6e1e;text-align:right;">${fmt(liqReal)}</span>
+            <span style="font-size:11px;color:#aaa;text-align:right;">${fmt(liquid)}</span>
+          </div>
+          <div style="font-size:10px;color:#aaa;margin-top:6px;font-style:italic;">Today's $ = same purchasing power · 2051 actual = account balance</div>
+        </div>
+        <div style="padding:12px 14px;background:${surplus>0?'#f0f7ee':'#fff8f8'};">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:${surplus>0?'#2a6e1e':'#a02020'};margin-bottom:8px;">Step 4 — Verdict</div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:13px;color:#555;">Portfolio you'll have</span><span style="font-size:13px;font-weight:600;color:#2a6e1e;">${fmt(liqReal)}</span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:13px;color:#555;">Portfolio you need</span><span style="font-size:13px;font-weight:600;color:#1a5280;">− ${fmt(needed4pct)}</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid ${surplus>0?'rgba(42,110,30,0.15)':'rgba(160,32,32,0.15)'};">
+            <span style="font-size:14px;font-weight:700;color:${surplus>0?'#2a6e1e':'#a02020'};">${surplus>0?'✓ On Track':'✗ Shortfall'}</span>
+            <span style="font-family:'DM Serif Display',serif;font-size:1.5rem;color:${surplus>0?'#2a6e1e':'#a02020'};">${fmt(Math.abs(surplus))}</span>
+          </div>
+          <div style="font-size:11px;color:${surplus>0?'#6a9e6a':'#c06060'};margin-top:6px;">
+            ${surplus>0?`Covers ${((liqReal/needed4pct)*100).toFixed(0)}% of what you need — ${fmt(surplus)} buffer`:'Increase contributions or reduce expenses'}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:14px 16px 6px;"><span style="font-size:14px;font-weight:600;color:#0d0d0b;">④ CPP + OAS</span><span style="font-size:11px;color:#2a6e1e;font-weight:500;margin-left:8px;">● Indexed to inflation forever</span></div>
+      <div style="margin:0 16px 16px;background:#f8fff8;border:1px solid rgba(42,110,30,0.12);border-radius:8px;overflow:hidden;">
+        ${[["CPP — Manny","$1,200/mo","Verify at My Service Canada"],["CPP — Rani","$900/mo","Verify at My Service Canada"],["OAS — Manny","$700/mo","Eligible at 65"],["OAS — Rani","$700/mo","Eligible at 65"]].map(([n,v,note])=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);">
+          <div><span style="font-size:13px;color:#333;">${n}</span><span style="font-size:11px;color:#aaa;margin-left:8px;">${note}</span></div>
+          <span style="font-size:13px;font-weight:600;color:#2a6e1e;">${v}</span>
+        </div>`).join('')}
+        <div style="display:flex;justify-content:space-between;padding:10px 14px;background:rgba(42,110,30,0.06);border-top:1px solid rgba(42,110,30,0.1);">
+          <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total government income</span>
+          <span style="font-size:14px;font-weight:700;color:#2a6e1e;">$3,500/mo · inflation-adjusted always</span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px;">
+        <span style="font-size:14px;font-weight:600;color:#0d0d0b;">⑤ RESP — Education Fund</span>
+        <span style="font-size:11px;color:#888;">5% growth · $30K/yr today</span>
+      </div>
+      <div style="margin:0 16px 20px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;overflow:hidden;">
+        ${[["RESP balance today",fmt(respNow),""],
+           ["Monthly contribution",rpEditMode?`<input type="number" value="${contrib.resp}" oninput="(function(v){if(v===''||v==='-')return;window.rpContrib['resp']=parseFloat(v)||0;renderRpSection();saveRpData();})(this.value)" onfocus="this.select()" style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:16px;font-weight:600;font-family:inherit;color:#1a5280;width:90px;text-align:right;outline:none;padding:4px 8px;">`:fmt(contrib.resp)+"/mo",""],
+           ["Annual CESG (govt)","$1,000/yr","20% match on $2,500/child"],
+           ["Total going in /yr",fmt(respAnnual),"contributions + CESG"]]
+          .map(([label,val,note])=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr;padding:7px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;" onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+            <div><span style="font-size:13px;color:#333;">${label}</span>${note?`<span style="font-size:11px;color:#aaa;margin-left:6px;">${note}</span>`:''}</div>
+            <div style="text-align:right;font-size:13px;font-weight:600;color:#1a5280;">${val}</div>
+          </div>`).join('')}
+        <div style="padding:8px 14px;background:rgba(26,82,128,0.04);border-top:1px solid rgba(0,0,0,0.06);">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#1a5280;">Noor — University 2038–2042</span>
+        </div>
+        ${[["RESP at start (2038)",fmt(respNoor),"12 yrs growth"],["Total 4-yr cost (2038$)",fmt(cn),"inflated 2.5%/yr"],["Remaining after Noor",fmt(rem),"for Veer"]].map(([l,v,n])=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr;padding:7px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;" onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+            <div><span style="font-size:13px;color:#333;">${l}</span><span style="font-size:11px;color:#aaa;margin-left:6px;">${n}</span></div>
+            <span style="font-size:13px;font-weight:600;color:#1a5280;text-align:right;">${v}</span>
+          </div>`).join('')}
+        <div style="padding:8px 14px;background:rgba(106,158,106,0.08);border-top:1px solid rgba(0,0,0,0.06);">
+          <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#2a6e1e;">Veer — University 2040–2044</span>
+        </div>
+        ${[["RESP at start (2040)",fmt(respVeer),"remaining + 2 more yrs"],["Total 4-yr cost (2040$)",fmt(cv),"inflated 2.5%/yr"]].map(([l,v,n])=>`
+          <div style="display:grid;grid-template-columns:2fr 1fr;padding:7px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);align-items:center;" onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+            <div><span style="font-size:13px;color:#333;">${l}</span><span style="font-size:11px;color:#aaa;margin-left:6px;">${n}</span></div>
+            <span style="font-size:13px;font-weight:600;color:#1a5280;text-align:right;">${v}</span>
+          </div>`).join('')}
+        <div style="padding:12px 14px;background:${veerGap>0?'#fff8f8':'#f0f7ee'};border-top:1px solid rgba(0,0,0,0.08);">
+          ${veerGap>0
+            ?`<div style="display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:13px;font-weight:600;color:#a02020;">Veer gap: ${fmt(veerGap)}</div><div style="font-size:11px;color:#c06060;margin-top:2px;">Add $${topUp}/mo to RESP now to close gap</div></div><span style="font-size:20px;">⚠️</span></div>`
+            :`<div style="font-size:13px;font-weight:600;color:#2a6e1e;">✓ Both kids fully funded</div>`}
+        </div>
+      </div>
+    </div>`;
+}
+window.toggleRpEdit = () => requireEditPassword(() => { rpEditMode=!rpEditMode; renderRpSection(); });
+
+// ============================================================
+// WEDDING FUND — defined BEFORE it's called
+// ============================================================
 const WF_DEFAULTS = {
   noor: { name:"Noor", born:"2020-07-23", weddingAge:28, goalToday:100000 },
   veer: { name:"Veer", born:"2022-03-23", weddingAge:28, goalToday:100000 }
 };
-
-// GLOBAL STATE (all at top now)
-let data = JSON.parse(JSON.stringify(DEFAULTS));
-let fsData = JSON.parse(JSON.stringify(FS_DEFAULTS));
 let wfData = JSON.parse(JSON.stringify(WF_DEFAULTS));
-let editMode = false;
-let budgetEditUnlocked = false;
-let fsEditMode = false;
-let rpEditMode = false;
-let wfEditMode = false;
-let collapsedSections = {};
-let chart = null;
-let saveTimer = null;
-let fsSaveTimer = null;
-let rpSaveTimer = null;
 let wfSaveTimer = null;
-let siteEditUnlocked = false;
-let rpNeedsRefresh = false;
-let rpContrib = {rrsp:1250, tfsa:1208, rpp:500, resp:580};
-let retExpenses = null; // will be set in renderRpSection
 
-const fmt = n => "$" + Number(n).toLocaleString("en-CA", {minimumFractionDigits:0, maximumFractionDigits:2});
-const fsFmt = n => "$" + Number(n).toLocaleString("en-CA",{minimumFractionDigits:0,maximumFractionDigits:0});
-const secTotal = cat => cat.items.reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
-const grandTotal = data => Object.values(data).reduce((s,c) => s + secTotal(c), 0);
-const fsInvTotal = () => Object.values(fsData.investments).reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+(parseFloat(i.amount)||0),0),0);
-const fsLibTotal = () => Object.values(fsData.liabilities).reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+(parseFloat(i.amount)||0),0),0);
-const fsPrimaryEquity = () => fsData.real_estate.primary.value - fsData.real_estate.primary.mortgage;
-const fsWoodstockEquity = () => fsData.real_estate.woodstock.value - fsData.real_estate.woodstock.mortgage;
-const fsNwWith = () => fsInvTotal() + fsPrimaryEquity() + fsWoodstockEquity() - fsLibTotal();
-const fsNwWithout = () => fsInvTotal() + fsWoodstockEquity() - fsData.liabilities.mortgages.items[1].amount;
-
-// ==================== ALL YOUR ORIGINAL FUNCTIONS (unchanged except wf fix) ====================
-/* ... all the functions you already had (loadData, saveData, render, renderSection, buildChart, toggleEdit, toggleSection, updateAmount, updateName, addItem, removeItem, refreshTotals, loadFsData, saveFsData, loadRpData, saveRpData, loadWfData, saveWfData, getRpBalances, calcTfsaSequence, getTfsaBalance, renderFsSection, renderRpSection, renderWfSection, requireEditPassword, refreshRetirementIfVisible, updateFsInv, updateFsRe, updateFsLib, addFsInvItem, toggleFsEdit, toggleRpEdit, updateWf, wfCalc) ... */
-
-// ONLY CHANGE: fixed wf edit mode
-window.toggleWfEdit = () => requireEditPassword(() => {
-  wfEditMode = !wfEditMode;
+async function loadWfData() {
+  try {
+    const snap = await db.collection("budget").doc("weddingfund").get();
+    if (snap.exists) {
+      const d = snap.data();
+      if (d.noor) wfData.noor = {...WF_DEFAULTS.noor, ...d.noor};
+      if (d.veer) wfData.veer = {...WF_DEFAULTS.veer, ...d.veer};
+    }
+  } catch(e) {}
+}
+async function saveWfData() {
+  clearTimeout(wfSaveTimer);
+  wfSaveTimer = setTimeout(async () => {
+    try {
+      await db.collection("budget").doc("weddingfund").set(wfData);
+      const el = document.getElementById("wf-saved");
+      if (el) { el.style.opacity=1; setTimeout(()=>{el.style.opacity=0;},2000); }
+    } catch(e) {}
+  }, 800);
+}
+window.updateWf = (child, field, val) => {
+  const parsed = parseFloat(val);
+  if (val===''||val==='-') return;
+  wfData[child][field] = isNaN(parsed) ? wfData[child][field] : parsed;
   renderWfSection();
-});
+  renderRpSection(); // keep retirement in sync — TFSA surplus feeds retirement
+  saveWfData();
+};
 
-// (the rest of your functions stay exactly as you wrote them)
+function wfCalc() {
+  // Delegates entirely to the shared TFSA sequence calculator
+  return calcTfsaSequence();
+}
 
-window.addEventListener('DOMContentLoaded', function() {
-  try { render(); } catch(e) { console.error("Render error", e); }
-  setTimeout(() => {
-    try { injectSections(); } catch(e) { console.error("Inject error", e); }
-  }, 200);
-});
+function getTfsaBalance() {
+  return fsData.investments.retirement.items
+    .filter(i => i.name.toUpperCase().includes('TFSA'))
+    .reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
+}
+
+function renderWfSection() {
+  const container = document.getElementById("wf-container");
+  if (!container) return;
+  const fmtW = n => "$"+Math.round(n).toLocaleString("en-CA");
+  const seq = calcTfsaSequence();
+  const tfsaOk = seq.noorSurplus >= 0;
+  const veerOk = seq.veerSurplus >= 0;
+  const wfEditStyle = rpEditMode
+    ? "border:1px solid rgba(42,110,30,0.35);background:rgba(42,110,30,0.1);color:#2a6e1e;"
+    : "border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#333330;";
+
+  const row = (label, val, note, highlight) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 16px;border-bottom:0.5px solid rgba(0,0,0,0.05);gap:12px;${highlight?'background:'+highlight+';':''}" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+      <div style="min-width:0;">
+        <div style="font-size:13px;color:#333;">${label}</div>
+        <div style="font-size:11px;color:#aaa;margin-top:1px;">${note}</div>
+      </div>
+      <div style="flex-shrink:0;text-align:right;">${val}</div>
+    </div>`;
+
+  const goalInp = (key) => {
+    const d = wfData[key];
+    return `<input type="number" value="${d.goalToday}" oninput="updateWf('${key}','goalToday',this.value)" onfocus="this.select()" style="background:#fff;border:1px solid rgba(122,48,128,0.35);border-radius:6px;font-size:13px;font-weight:600;font-family:inherit;color:#7a3080;width:min(110px,35vw);text-align:right;outline:none;padding:4px 8px;">`;
+  };
+
+  const verdictBlock = (ok, surplus, label) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 16px;background:${ok?'#f0f7ee':'#fff8f8'};">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:${ok?'#2a6e1e':'#a02020'};">${ok?'✓ TFSA covers '+label+' wedding':'✗ TFSA shortfall for '+label}</div>
+        <div style="font-size:11px;color:${ok?'#6a9e6a':'#c06060'};margin-top:2px;">${ok?'Surplus of '+fmtW(surplus)+' continues growing':'Need '+fmtW(Math.abs(surplus))+' more in TFSA to cover this wedding'}</div>
+      </div>
+      <span style="font-family:'DM Serif Display',serif;font-size:1.15rem;color:${ok?'#2a6e1e':'#a02020'};">${ok?'+':'-'}${fmtW(Math.abs(surplus))}</span>
+    </div>`;
+
+  container.innerHTML = `
+    <div style="padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.08);background:#fafaf8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <span style="font-size:11px;color:#aaa;">TFSA → Noor (2048) → Veer (2050) → Retirement (2051) · 5%/yr · 2.5% inflation</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span id="wf-saved" style="font-size:12px;color:#2a6e1e;opacity:0;transition:opacity 0.3s;">✓ Saved</span>
+        <button onclick="toggleWfEdit()" style="font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;${wfEditStyle}">${rpEditMode?'✓ Done':'✎ Edit'}</button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:12px 14px;border-right:1px solid rgba(0,0,0,0.06);">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:4px;">TFSA today</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#1a5280;">${fmtW(seq.tfsaNow)}</div>
+        <div style="font-size:10px;color:#aaa;margin-top:2px;">Manny + Rani combined</div>
+      </div>
+      <div style="padding:12px 14px;border-right:1px solid rgba(0,0,0,0.06);">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:4px;">After both weddings</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:${seq.afterVeer>0?'#2a6e1e':'#a02020'};">${fmtW(seq.afterVeer)}</div>
+        <div style="font-size:10px;color:#aaa;margin-top:2px;">at Veer's wedding (${seq.veerYear})</div>
+      </div>
+      <div style="padding:12px 14px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:4px;">TFSA → retirement</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:${seq.tfsaAtRetirement>0?'#2a6e1e':'#a02020'};">${fmtW(seq.tfsaAtRetirement)}</div>
+        <div style="font-size:10px;color:#aaa;margin-top:2px;">grows ${seq.veerYear}→${seq.retYear}</div>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:10px 16px;background:rgba(122,48,128,0.05);">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#7a3080;">Noor — Wedding ~${seq.noorYear} · ${seq.noorYear-2026} yrs away</span>
+      </div>
+      ${row('Wedding budget', goalInp('noor'), "today's dollars — edit anytime")}
+      ${row('Inflation-adj. goal', fmtW(seq.noorGoal), `2.5%/yr × ${seq.noorYear-2026} yrs`)}
+      ${row('TFSA at Noor's wedding', fmtW(seq.tfsaAtNoor), `${fmtW(seq.tfsaNow)} × (1.05)^${seq.noorYear-2026}`)}
+      ${verdictBlock(seq.noorSurplus>=0, seq.noorSurplus, 'Noor's')}
+    </div>
+
+    <div style="border-top:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:10px 16px;background:rgba(26,107,138,0.05);">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#1a6b8a;">Veer — Wedding ~${seq.veerYear} · ${seq.veerYear-2026} yrs away</span>
+      </div>
+      ${row('Wedding budget', goalInp('veer'), "today's dollars — edit anytime")}
+      ${row('Inflation-adj. goal', fmtW(seq.veerGoal), `2.5%/yr × ${seq.veerYear-2026} yrs`)}
+      ${row('TFSA surplus from Noor (${seq.noorYear})', fmtW(seq.afterNoor), `what remains after Noor's wedding`)}
+      ${row('TFSA at Veer's wedding', fmtW(seq.tfsaAtVeer), `${fmtW(seq.afterNoor)} × (1.05)^${seq.veerYear-seq.noorYear}`)}
+      ${verdictBlock(seq.veerSurplus>=0, seq.veerSurplus, 'Veer's')}
+    </div>
+
+    <div style="border-top:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:10px 16px;background:rgba(42,110,30,0.04);">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#2a6e1e;">Retirement — ${seq.retYear} · ${seq.retYear-seq.veerYear} yrs after Veer</span>
+      </div>
+      ${row('TFSA surplus from Veer (${seq.veerYear})', fmtW(seq.afterVeer), 'what remains after both weddings')}
+      ${row('TFSA at retirement (${seq.retYear})', fmtW(seq.tfsaAtRetirement), `${fmtW(seq.afterVeer)} × (1.05)^${seq.retYear-seq.veerYear} · feeds retirement plan above`)}
+    </div>
+
+    <div style="padding:10px 16px;background:#fafaf8;border-top:1px solid rgba(0,0,0,0.08);">
+      <div style="font-size:10px;color:#aaa;line-height:1.6;">Strategy: one TFSA pool · 100% equity (XEQT) throughout · shift each child's share to bonds ~age 20 · cash/GICs in final 2–3 yrs · surplus always feeds retirement</div>
+    </div>`;
+}
+window.toggleWfEdit = () => requireEditPassword(() => { rpEditMode=!rpEditMode; renderWfSection(); });
 </script>
 </body>
 </html>
