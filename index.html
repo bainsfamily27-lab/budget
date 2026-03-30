@@ -429,7 +429,7 @@ const fsInvTotal = () => Object.values(fsData.investments).reduce((s,c)=>s+c.ite
 const fsLibTotal = () => Object.values(fsData.liabilities).reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+(parseFloat(i.amount)||0),0),0);
 const fsPrimaryEquity   = () => fsData.real_estate.primary.value   - fsData.real_estate.primary.mortgage;
 const fsWoodstockEquity = () => fsData.real_estate.woodstock.value - fsData.real_estate.woodstock.mortgage;
-const fsNwWith    = () => fsInvTotal() + fsPrimaryEquity() + fsWoodstockEquity() - fsLibTotal();
+const fsNwWith    = () => fsInvTotal() + fsData.real_estate.primary.value + fsData.real_estate.woodstock.value - fsLibTotal(); // uses full property values, not equity, to avoid double-counting mortgages
 const fsNwWithout = () => fsInvTotal() + fsWoodstockEquity(); // equity = value-mortgage, no double-subtract
 
 async function loadFsData() {
@@ -505,7 +505,7 @@ window.toggleFsEdit = () => requireEditPassword(() => { fsEditMode=!fsEditMode; 
 // ============================================================
 function injectSections() {
   if (document.getElementById('private-wrapper')) {
-    renderFsSection(); renderRpSection(); renderWfSection(); renderInsSection(); renderActionSection(); renderActionSection(); return;
+    renderFsSection(); renderRpSection(); renderWfSection(); renderInsSection(); renderActionSection(); return;
   }
   const appEl = document.getElementById("app");
   if (!appEl) return;
@@ -525,7 +525,7 @@ function injectSections() {
     <div id="action-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;margin-bottom:32px;"></div>`;
   appEl.appendChild(wrapper);
   Promise.all([loadFsData(), loadRpData(), loadWfData()]).then(() => {
-    renderFsSection(); renderRpSection(); renderWfSection(); renderInsSection();
+    renderFsSection(); renderRpSection(); renderWfSection(); renderInsSection(); renderActionSection();
   });
 }
 
@@ -538,7 +538,7 @@ function renderFsSection() {
   const invTotal=fsInvTotal(), libTotal=fsLibTotal();
   const primEquity=fsPrimaryEquity(), woodEquity=fsWoodstockEquity();
   const nwWith=fsNwWith(), nwWithout=fsNwWithout();
-  const totalAssets=invTotal+primEquity+woodEquity;
+  const totalAssets=invTotal+fsData.real_estate.primary.value+fsData.real_estate.woodstock.value; // full property values for assets display
 
   const invSections = Object.keys(fsData.investments).map(catKey => {
     const cat=fsData.investments[catKey];
@@ -1069,8 +1069,6 @@ function renderInsSection() {
   const container = document.getElementById("ins-container");
   if (!container) return;
 
-  const fmtM = n => "$"+Number(n).toLocaleString("en-CA",{minimumFractionDigits:2,maximumFractionDigits:2})+"/mo";
-
   const card = (opts) => `
     <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
       <div style="padding:10px 16px;background:rgba(${opts.rgb},0.05);">
@@ -1093,47 +1091,67 @@ function renderInsSection() {
 
   container.innerHTML = `
     <div style="padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.08);background:#fafaf8;">
-      <span style="font-size:11px;color:#aaa;">SunLife SunSpectrum Term 20 · all premiums in today's dollars</span>
+      <span style="font-size:11px;color:#aaa;">Sun Life SunSpectrum Term 20 · no medical exam required for conversion · all premiums in today's dollars</span>
     </div>
 
     ${card({
       name:"Manny (Manminder P Bains)", type:"Term 20 · $750,000", rgb:"26,82,128",
       rows:[
-        ["Current premium","$54.90/mo","Dec 2018 — Dec 2038 · non-smoker class 3"],
-        ["Renewal premium (2038)","$508.50/mo","20-year renewal · jumps Dec 18, 2038"],
-        ["Renewal premium (2058)","$3,256.43/mo","40-year renewal · likely unaffordable"],
-        ["Coverage ends","Dec 18, 2071","Age ~83"],
-        ["Last date to convert","Dec 18, 2061","Convert to permanent before this date"],
+        ["Current premium","$54.90/mo","Dec 18, 2018 — Dec 18, 2038 · non-smoker class 3"],
+        ["Renewal premium (Dec 2038)","$508.50/mo","Auto-renews for another 20 yrs — no action needed to keep coverage"],
+        ["Renewal premium (Dec 2058)","$3,256.43/mo","Likely unaffordable — plan before this date"],
+        ["Coverage ends","Dec 18, 2071","Age ~83 — ends here unless converted to permanent"],
+        ["Last date to convert to permanent","Dec 18, 2061","No medical exam required · convert any amount up to $750K"],
         ["Risk class","Class 3 (non-smoker)","Class 1 is best — ask advisor why Class 3"],
       ],
       alerts:[
-        {type:"warn", title:"Premium jump in Dec 2038 — 12 years away", body:"Monthly cost rises from $54.90 to $508.50. Plan ahead: decide by 2038 whether to renew, convert to permanent, or reduce coverage as needs change."},
-        {type:"warn", title:"Review Class 3 rating", body:"Rani is Class 1 (best rate). Manny is Class 3 — this increases premiums significantly. If health has improved since 2018, ask advisor about re-rating at next conversion/renewal."},
+        {type:"warn", title:"Premium jumps +$454/mo on Dec 18, 2038", body:"Rises from $54.90 to $508.50/mo automatically. No action needed to keep coverage — it just renews. But plan ahead: by 2035–2036 decide whether to renew, reduce coverage, or convert to permanent."},
+        {type:"warn", title:"Convert to Term 30 deadline: ~2038–2041", body:"To convert to a new Term 30 policy, you must apply before the 5th policy anniversary nearest your 55th birthday (~2041). No medical exam required. Locks in longer term at your current health rating."},
+        {type:"warn", title:"Convert to Term 20 deadline: ~2048–2051", body:"To convert to a new Term 20, apply before the 5th anniversary nearest your 65th birthday (~2051). Again no medical exam required."},
+        {type:"warn", title:"Review Class 3 rating", body:"Rani is rated Class 1 (best rate). Manny is Class 3 — this meaningfully increases premiums. Ask your Sun Life advisor about re-rating before the 2038 renewal if health has been good since 2018."},
       ]
     })}
 
     ${card({
       name:"Rani (Ranjit K Rai)", type:"Term 20 · $750,000", rgb:"42,110,30",
       rows:[
-        ["Current premium","$30.60/mo","Dec 2018 — Dec 2038 · non-smoker class 1 (best rate)"],
-        ["Renewal premium (2038)","$264.15/mo","20-year renewal · jumps Dec 18, 2038"],
-        ["Renewal premium (2058)","$1,751.85/mo","40-year renewal · likely unaffordable"],
-        ["Coverage ends","Dec 18, 2072","Age ~72"],
-        ["Last date to convert","Dec 18, 2062","Convert to permanent before this date"],
+        ["Current premium","$30.60/mo","Dec 18, 2018 — Dec 18, 2038 · non-smoker class 1 (best rate)"],
+        ["Renewal premium (Dec 2038)","$264.15/mo","Auto-renews for another 20 yrs — no action needed to keep coverage"],
+        ["Renewal premium (Dec 2058)","$1,751.85/mo","Likely unaffordable — plan before this date"],
+        ["Coverage ends","Dec 18, 2072","Age ~72 — ends here unless converted to permanent"],
+        ["Last date to convert to permanent","Dec 18, 2062","No medical exam required · convert any amount up to $750K"],
         ["Risk class","Class 1 (non-smoker)","Best available rate ✓"],
       ],
       alerts:[
-        {type:"warn", title:"Coverage ends Dec 2072 — age ~72", body:"Rani's coverage ends earlier relative to lifespan than Manny's. If long-term coverage is needed, convert to permanent well before Dec 2062."},
+        {type:"warn", title:"Premium jumps +$234/mo on Dec 18, 2038", body:"Rises from $30.60 to $264.15/mo automatically. No action needed to keep coverage. Review coverage needs around 2035–2036 alongside Manny's policy."},
+        {type:"warn", title:"Convert to Term 30 deadline: ~2038–2041", body:"Apply before the 5th anniversary nearest Rani's 55th birthday to convert to Term 30. No medical exam required."},
+        {type:"warn", title:"Coverage ends age ~72 — sooner than Manny's", body:"If permanent coverage is desired into old age, convert well before Dec 2062 while no medical exam is required."},
       ]
     })}
+
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:10px 16px;background:#eef4fa;border-bottom:0.5px solid rgba(26,82,128,0.1);">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#1a5280;">Conversion Options — How They Work</span>
+      </div>
+      ${[
+        ["No medical exam required","You can convert to any new policy Sun Life offers at the time, without providing new health evidence — regardless of health changes since 2018. This is the most valuable right in the policy.",""],
+        ["Option A — Convert to longer Term","Switch from Term 20 to a new Term 20 or Term 30. Deadlines: Term 30 by ~age 55 (~2041), Term 20 by ~age 65 (~2051). Cheaper than permanent but still time-limited.",""],
+        ["Option B — Convert to Permanent","Switch to whole life or universal life — coverage for life, no more renewals. Apply any time before Dec 2061 (Manny) / Dec 2062 (Rani). Premium will be higher than term but locked forever.",""],
+        ["Smart window: 2033–2036","Review with your Sun Life advisor well before 2038. By then kids will nearly be adults and mortgage smaller — you may not need $750K each. Reducing to $300–400K and converting that portion to permanent is a common strategy.",""],
+      ].map(([l,v,n])=>`
+      <div style="padding:9px 16px;border-bottom:0.5px solid rgba(0,0,0,0.05);">
+        <div style="font-size:13px;font-weight:600;color:#333;margin-bottom:2px;">${l}</div>
+        <div style="font-size:11px;color:#666;line-height:1.5;">${v}</div>
+      </div>`).join('')}
+    </div>
 
     <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
       <div style="padding:10px 16px;background:rgba(122,48,128,0.05);">
         <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#7a3080;">Children — Whole Life · $50,000 each</span>
       </div>
       ${[
-        ["Noor","$86.22/mo","20-yr premium period ends ~2040","Policy date ~Mar 2020","Guaranteed cash value $50K at 2120","Dividend option: paid-up additional insurance"],
-        ["Veer","$96.95/mo","20-yr premium period ends ~2042","Policy date Mar 28, 2022","Guaranteed cash value $50K at 2122","Dividend option: paid-up additional insurance"],
+        ["Noor","$86.22/mo","20-yr premiums end ~2040","Policy date ~Mar 2020","Guaranteed cash value $50K at 2120","Dividend option: paid-up additional insurance"],
+        ["Veer","$96.95/mo","20-yr premiums end ~2042","Policy date Mar 28, 2022","Guaranteed cash value $50K at 2122","Dividend option: paid-up additional insurance"],
       ].map(([name,prem,period,date,gcv,div])=>`
       <div style="padding:8px 16px;border-bottom:0.5px solid rgba(0,0,0,0.05);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
@@ -1146,10 +1164,11 @@ function renderInsSection() {
       <div style="padding:10px 16px;background:#faf5ff;border-top:0.5px solid rgba(122,48,128,0.1);">
         <div style="font-size:12px;font-weight:600;color:#7a3080;margin-bottom:4px;">Purpose of children's whole life policies</div>
         <div style="font-size:11px;color:#555;line-height:1.6;">
-          • <strong>Locks in insurability</strong> — if a health condition develops later, coverage cannot be denied<br>
+          • <strong>Locks in insurability</strong> — if a health condition develops later in life, coverage can never be denied<br>
           • <strong>Cash value builds tax-sheltered</strong> — accessible via policy loan for university, wedding, or emergencies<br>
-          • <strong>Paid-up after ~20 years</strong> — no more premiums, coverage + dividends continue for life<br>
-          • <strong>Dividend additions</strong> — actual death benefit grows beyond $50K over time (could reach $70–100K+ by adulthood)
+          • <strong>Paid-up after ~20 years</strong> — premiums end ~2040/2042, coverage + dividends continue for life with no more payments<br>
+          • <strong>Dividend additions</strong> — actual death benefit grows beyond $50K (could reach $70–100K+ by adulthood)<br>
+          • <strong>Total cost:</strong> Noor ~$20,693 · Veer ~$23,268 over 20 years — paid-up for life after that
         </div>
       </div>
     </div>
@@ -1163,7 +1182,10 @@ function renderInsSection() {
         <span>Veer: <strong>$96.95</strong></span>
         <span style="font-weight:600;color:#0d0d0b;">Total: <strong>$268.67/mo</strong></span>
       </div>
-      <div style="font-size:11px;color:#a06000;margin-top:8px;font-weight:500;">⚠ Key action: In 2038 adult premiums jump to $772.65/mo combined (+$687/mo). Review coverage needs and conversion options well before that date.</div>
+      <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:16px;font-size:11px;color:#a06000;font-weight:500;">
+        <span>⚠ Dec 2038: adult premiums jump to $772.65/mo combined (+$687/mo)</span>
+        <span>✓ Children's premiums end ~2040–2042 — paid-up for life after that</span>
+      </div>
     </div>`;
 }
 // ============================================================
@@ -1197,7 +1219,7 @@ function renderActionSection() {
     },
     {
       priority: "medium",
-      icon: "🛡️",
+      icon: "🛡",
       title: "Review Manny's Class 3 insurance rating",
       detail: "Rani is rated Class 1 (best). Manny is Class 3 — this meaningfully increases premiums. If health has improved since the 2018 application, ask your Sun Life advisor about re-rating before the Dec 2038 renewal.",
       tag: "Insurance · Review"
