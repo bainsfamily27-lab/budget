@@ -96,7 +96,13 @@
 </style>
 </head>
 <body>
-<div id="app"></div>
+<noscript><p style="font-family:sans-serif;padding:40px;color:#333">JavaScript is required to run this dashboard.</p></noscript>
+<div id="app">
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:80vh;gap:16px;font-family:'DM Sans',sans-serif;">
+    <div style="width:32px;height:32px;border:3px solid rgba(0,0,0,0.1);border-top-color:#2a6e1e;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+    <div style="font-size:14px;color:#555550;">Loading dashboard…</div>
+  </div>
+</div>
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyCi-h2avvX-QTUX5zuKa4J3jaf7LQo_YG8",
@@ -112,6 +118,7 @@ try {
   db = firebase.firestore();
 } catch(e) {
   console.error("Firebase init failed:", e);
+  document.getElementById("app").innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#a02020;"><strong>Failed to connect to database.</strong><br><small>' + e.message + '</small></div>';
 }
 
 const DEFAULTS = {
@@ -302,7 +309,10 @@ function refreshTotals(key) {
 
 window.addEventListener('DOMContentLoaded', async function() {
   // Render immediately with defaults so page isn't blank
-  try { render(); } catch(e) { console.error("Initial render failed:", e); }
+  try { render(); } catch(e) {
+    console.error("Initial render failed:", e);
+    document.getElementById("app").innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#a02020;"><strong>Render error:</strong><br><small>' + e.message + '</small></div>';
+  }
 
   // Load all data in parallel then re-render everything
   try {
