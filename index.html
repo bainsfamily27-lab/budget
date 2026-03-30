@@ -991,8 +991,8 @@ function renderWfSection() {
       </div>
       ${row('Wedding budget', goalInp('noor'), "today's dollars — edit anytime")}
       ${row('Inflation-adj. goal', fmtW(seq.noorGoal), `2.5%/yr × ${seq.noorYear-2026} yrs`)}
-      ${row('TFSA at Noor's wedding', fmtW(seq.tfsaAtNoor), `${fmtW(seq.tfsaNow)} × (1.05)^${seq.noorYear-2026}`)}
-      ${verdictBlock(seq.noorSurplus>=0, seq.noorSurplus, 'Noor's')}
+      ${row('TFSA at Noor\'s wedding', fmtW(seq.tfsaAtNoor), `${fmtW(seq.tfsaNow)} × (1.05)^${seq.noorYear-2026}`)}
+      ${verdictBlock(seq.noorSurplus>=0, seq.noorSurplus, 'Noor\'s')}
     </div>
 
     <div style="border-top:1px solid rgba(0,0,0,0.08);">
@@ -1001,9 +1001,9 @@ function renderWfSection() {
       </div>
       ${row('Wedding budget', goalInp('veer'), "today's dollars — edit anytime")}
       ${row('Inflation-adj. goal', fmtW(seq.veerGoal), `2.5%/yr × ${seq.veerYear-2026} yrs`)}
-      ${row('TFSA surplus from Noor (${seq.noorYear})', fmtW(seq.afterNoor), `what remains after Noor's wedding`)}
-      ${row('TFSA at Veer's wedding', fmtW(seq.tfsaAtVeer), `${fmtW(seq.afterNoor)} × (1.05)^${seq.veerYear-seq.noorYear}`)}
-      ${verdictBlock(seq.veerSurplus>=0, seq.veerSurplus, 'Veer's')}
+      ${row('TFSA surplus from Noor (${seq.noorYear})', fmtW(seq.afterNoor), `what remains after Noor\'s wedding`)}
+      ${row('TFSA at Veer\'s wedding', fmtW(seq.tfsaAtVeer), `${fmtW(seq.afterNoor)} × (1.05)^${seq.veerYear-seq.noorYear}`)}
+      ${verdictBlock(seq.veerSurplus>=0, seq.veerSurplus, 'Veer\'s')}
     </div>
 
     <div style="border-top:1px solid rgba(0,0,0,0.08);">
