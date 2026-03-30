@@ -430,7 +430,7 @@ const fsLibTotal = () => Object.values(fsData.liabilities).reduce((s,c)=>s+c.ite
 const fsPrimaryEquity   = () => fsData.real_estate.primary.value   - fsData.real_estate.primary.mortgage;
 const fsWoodstockEquity = () => fsData.real_estate.woodstock.value - fsData.real_estate.woodstock.mortgage;
 const fsNwWith    = () => fsInvTotal() + fsPrimaryEquity() + fsWoodstockEquity() - fsLibTotal();
-const fsNwWithout = () => fsInvTotal() + fsWoodstockEquity() - fsData.liabilities.mortgages.items[1].amount;
+const fsNwWithout = () => fsInvTotal() + fsWoodstockEquity(); // equity = value-mortgage, no double-subtract
 
 async function loadFsData() {
   try {
@@ -748,7 +748,7 @@ function renderRpSection() {
           </div>`).join('')}
         <div style="padding:10px 14px;background:#f4f3ef;border-top:1px solid rgba(0,0,0,0.1);">
           <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total monthly expenses</span><span style="font-size:14px;font-weight:700;color:#0d0d0b;font-family:'DM Serif Display',serif;">${fmt(retTotal)}/mo</span></div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;color:#2a6e1e;">CPP + OAS (guaranteed, inflation-indexed)</span><span style="font-size:12px;font-weight:600;color:#2a6e1e;">− $3,500/mo</span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;color:#2a6e1e;">CPP + OAS (guaranteed, inflation-indexed)</span><span style="font-size:12px;font-weight:600;color:#2a6e1e;">− ${fmt(govtMo)}/mo</span></div>
           <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:0.5px solid rgba(0,0,0,0.15);"><span style="font-size:13px;font-weight:600;color:#1a5280;">Needed from portfolio</span><span style="font-size:14px;font-weight:700;color:#1a5280;font-family:'DM Serif Display',serif;">${fmt(fromPort/12)}/mo</span></div>
         </div>
       </div>
@@ -785,7 +785,7 @@ function renderRpSection() {
         <div style="padding:10px 14px;background:#fafaf8;border-bottom:1px solid rgba(0,0,0,0.06);">
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:8px;">Step 1 — Monthly Gap</div>
           <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:13px;color:#333;">Expenses</span><span style="font-size:13px;font-weight:600;color:#0d0d0b;">${fmt(retTotal)}/mo</span></div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:13px;color:#2a6e1e;">CPP + OAS</span><span style="font-size:13px;font-weight:600;color:#2a6e1e;">− $3,500/mo</span></div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:13px;color:#2a6e1e;">CPP + OAS</span><span style="font-size:13px;font-weight:600;color:#2a6e1e;">− ${fmt(govtMo)}/mo</span></div>
           <div style="display:flex;justify-content:space-between;padding-top:6px;border-top:1px solid rgba(0,0,0,0.08);"><span style="font-size:13px;font-weight:600;color:#1a5280;">Gap from portfolio</span><span style="font-size:14px;font-weight:700;color:#1a5280;">${fmt(fromPort/12)}/mo = ${fmt(fromPort)}/yr</span></div>
         </div>
         <div style="padding:10px 14px;background:#fff;border-bottom:1px solid rgba(0,0,0,0.06);">
@@ -845,7 +845,7 @@ function renderRpSection() {
           <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:0.5px solid rgba(0,0,0,0.05);">
             <div><span style="font-size:13px;color:#333;">${item.label}</span><span style="font-size:11px;color:#aaa;margin-left:8px;">${item.note}</span></div>
             ${rpEditMode
-              ? `<input type="number" value="${window.rpGovtItems[item.key]||item.def}" oninput="(function(v){if(v===''||v==='-')return;if(!window.rpGovtItems)window.rpGovtItems={cppManny:1200,cppRani:900,oasManny:700,oasRani:700};window.rpGovtItems['${item.key}']=parseFloat(v)||0;window.rpGovtMo=Object.values(window.rpGovtItems).reduce((s,x)=>s+x,0);renderRpSection();saveRpData();})(this.value)" onfocus="this.select()" style="background:#fff;border:1px solid rgba(42,110,30,0.3);border-radius:6px;font-size:13px;font-weight:600;font-family:inherit;color:#2a6e1e;width:90px;text-align:right;outline:none;padding:3px 8px;">`
+              ? `<input type="number" value="${window.rpGovtItems[item.key]||item.def}" oninput="(function(v){if(v===''||v==='-')return;if(!window.rpGovtItems)window.rpGovtItems={cppManny:1200,cppRani:900,oasManny:700,oasRani:700};window.rpGovtItems['${item.key}']=parseFloat(v)||0;window.rpGovtMo=Object.values(window.rpGovtItems).reduce((s,x)=>s+x,0);renderRpSection();saveRpData();})(this.value)" onfocus="this.select()" style="background:#fff;border:1px solid rgba(42,110,30,0.3);border-radius:6px;font-size:13px;font-weight:600;font-family:inherit;color:#2a6e1e;width:min(90px,28vw);text-align:right;outline:none;padding:3px 8px;">`
               : `<span style="font-size:13px;font-weight:600;color:#2a6e1e;">$${(window.rpGovtItems[item.key]||item.def).toLocaleString()}/mo</span>`
             }
           </div>`).join('');
