@@ -128,7 +128,7 @@ const DEFAULTS = {
   food:   { label:"Food & Home Supplies",icon:"🛒", color:"#a06b00", items:[{name:"Booster Juice",amount:80},{name:"A&W / McDonald's",amount:150},{name:"Grocery",amount:650},{name:"Costco",amount:250},{name:"Home Supplies",amount:250}] },
   auto:   { label:"Auto",                icon:"🚗", color:"#a02020", items:[{name:"Auto Insurance",amount:384.61},{name:"Gas",amount:450},{name:"407 ETR",amount:150}] },
   kids:   { label:"Kids Activities",     icon:"👧", color:"#7a3080", items:[{name:"Swimming",amount:100},{name:"Soccer",amount:74}] },
-  invest: { label:"Investment",          icon:"📈", color:"#1a5280", items:[{name:"RESP",amount:580},{name:"BTC",amount:200}] },
+  invest: { label:"Investment",          icon:"📈", color:"#1a5280", items:[{name:"RESP",amount:580},{name:"BTC",amount:200},{name:"TFSA (Manny)",amount:300},{name:"TFSA (Rani)",amount:200}] },
   other:  { label:"Others",              icon:"📦", color:"#555550", items:[{name:"House Cleaning",amount:200},{name:"Presto",amount:100},{name:"Life Insurance",amount:270},{name:"Gym (GoodLife)",amount:76},{name:"Enercare",amount:64},{name:"Claude AI",amount:27}] }
 };
 const CATEGORY_ORDER = ["home","kids","subs","auto","food","phone","invest","other"];
@@ -370,21 +370,28 @@ function getRpBalances() {
 function calcTfsaSequence() {
   const tfsaNow = getTfsaBalance();
   const r = 0.05, inf = 0.025, baseYear = 2026, retYear = 2051;
+  // Monthly TFSA contribution — combined from both budget lines (Manny + Rani)
+  const tfsaMo = getTfsaMonthlyContrib();
+  // FV with monthly contributions: PV grows + monthly contrib accumulates
+  const fvTfsa = (pv, mo, years) => {
+    const rm = r/12, nm = years*12;
+    return pv*Math.pow(1+rm,nm) + mo*(Math.pow(1+rm,nm)-1)/rm;
+  };
   const noorYear = new Date(wfData.noor.born).getFullYear() + wfData.noor.weddingAge;
   const veerYear = new Date(wfData.veer.born).getFullYear() + wfData.veer.weddingAge;
   const noorGoal = wfData.noor.goalToday * Math.pow(1+inf, noorYear - baseYear);
   const veerGoal = wfData.veer.goalToday * Math.pow(1+inf, veerYear - baseYear);
-  // Step 1: grow to Noor's wedding, pay her share
-  const tfsaAtNoor  = tfsaNow  * Math.pow(1+r, noorYear - baseYear);
+  // Step 1: grow to Noor's wedding with monthly contributions, pay her share
+  const tfsaAtNoor  = fvTfsa(tfsaNow, tfsaMo, noorYear - baseYear);
   const noorSurplus = tfsaAtNoor - noorGoal;
   const afterNoor   = Math.max(0, noorSurplus);
-  // Step 2: remainder grows to Veer's wedding, pay his share
-  const tfsaAtVeer  = afterNoor * Math.pow(1+r, veerYear - noorYear);
+  // Step 2: remainder grows to Veer's wedding (contributions continue), pay his share
+  const tfsaAtVeer  = fvTfsa(afterNoor, tfsaMo, veerYear - noorYear);
   const veerSurplus = tfsaAtVeer - veerGoal;
   const afterVeer   = Math.max(0, veerSurplus);
-  // Step 3: remainder grows to retirement
-  const tfsaAtRetirement = afterVeer * Math.pow(1+r, retYear - veerYear);
-  return { tfsaNow, noorYear, veerYear, retYear,
+  // Step 3: remainder + contributions grow to retirement
+  const tfsaAtRetirement = fvTfsa(afterVeer, tfsaMo, retYear - veerYear);
+  return { tfsaNow, tfsaMo, noorYear, veerYear, retYear,
            noorGoal, veerGoal,
            tfsaAtNoor, noorSurplus, afterNoor,
            tfsaAtVeer, veerSurplus, afterVeer,
@@ -706,7 +713,7 @@ function renderRpSection() {
   const rpEditStyle=rpEditMode?"border:1px solid rgba(42,110,30,0.35);background:rgba(42,110,30,0.1);color:#2a6e1e;":"border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#333330;";
   const tableRows=[
     {name:"RRSP",growth:"5% / 2.5% real",real:rrsp65/defl,key:"rrsp",contrib:contrib.rrsp},
-    {name:"TFSA (post-weddings)",growth:"5% lump-sum",real:tfsa65/defl,key:null,contrib:null},
+    {name:"TFSA (post-weddings)",growth:"5% w/ contributions",real:tfsa65/defl,key:null,contrib:null},
     {name:"RPP — Rani",growth:"5% / 2.5% real",real:rpp65/defl,key:"rpp",contrib:contrib.rpp},
     {name:"BTC (hold)",growth:"8% / 5.5% real",real:btc65/defl,key:null,contrib:null},
     {name:"India (sell at 65)",growth:"2.5% = inflation",real:india65/defl,key:null,contrib:null},
@@ -764,7 +771,7 @@ function renderRpSection() {
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:9px 12px;background:#f4f3ef;border-top:1px solid rgba(0,0,0,0.1);" class="rp-portfolio-row">
           <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total liquid</span><span></span>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
-            <span style="font-size:12px;font-weight:600;color:#1a5280;">${fmtM(contrib.rrsp+contrib.rpp)} contributions (excl. TFSA)</span>
+            <span style="font-size:12px;font-weight:600;color:#1a5280;">${fmtM(contrib.rrsp+contrib.rpp)} + TFSA ${fmtM(tfsaSeq.tfsaMo)} contributions</span>
             <span style="font-size:13px;font-weight:700;color:#2a6e1e;">${fmt(liqReal)}</span>
           </div>
         </div>
@@ -924,6 +931,14 @@ function getTfsaBalance() {
     .reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
 }
 
+// Combined monthly TFSA contribution from both budget lines (Manny + Rani)
+function getTfsaMonthlyContrib() {
+  if (!data || !data.invest) return 500;
+  return data.invest.items
+    .filter(i => i.name.toUpperCase().includes('TFSA'))
+    .reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
+}
+
 function renderWfSection() {
   const container = document.getElementById("wf-container");
   if (!container) return;
@@ -960,7 +975,7 @@ function renderWfSection() {
 
   container.innerHTML = `
     <div style="padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.08);background:#fafaf8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-      <span style="font-size:11px;color:#aaa;">TFSA → Noor (2048) → Veer (2050) → Retirement (2051) · 5%/yr · 2.5% inflation</span>
+      <span style="font-size:11px;color:#aaa;">TFSA pool (Manny + Rani) → Noor (2048) → Veer (2050) → Retirement (2051) · 5%/yr · ${fmtW(seq.tfsaMo)}/mo combined</span>
       <div style="display:flex;align-items:center;gap:8px;">
         <span id="wf-saved" style="font-size:12px;color:#2a6e1e;opacity:0;transition:opacity 0.3s;">✓ Saved</span>
         <button onclick="toggleWfEdit()" style="font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;${wfEditStyle}">${rpEditMode?'✓ Done':'✎ Edit'}</button>
@@ -981,7 +996,7 @@ function renderWfSection() {
       <div style="padding:12px 14px;">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:4px;">TFSA → retirement</div>
         <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:${seq.tfsaAtRetirement>0?'#2a6e1e':'#a02020'};">${fmtW(seq.tfsaAtRetirement)}</div>
-        <div style="font-size:10px;color:#aaa;margin-top:2px;">grows ${seq.veerYear}→${seq.retYear}</div>
+        <div style="font-size:10px;color:#aaa;margin-top:2px;">${fmtW(seq.tfsaMo)}/mo · ${seq.veerYear}→${seq.retYear}</div>
       </div>
     </div>
 
@@ -991,7 +1006,7 @@ function renderWfSection() {
       </div>
       ${row('Wedding budget', goalInp('noor'), "today's dollars — edit anytime")}
       ${row('Inflation-adj. goal', fmtW(seq.noorGoal), `2.5%/yr × ${seq.noorYear-2026} yrs`)}
-      ${row('TFSA at Noor\'s wedding', fmtW(seq.tfsaAtNoor), `${fmtW(seq.tfsaNow)} × (1.05)^${seq.noorYear-2026}`)}
+      ${row('TFSA at Noor\'s wedding', fmtW(seq.tfsaAtNoor), `${fmtW(seq.tfsaNow)} + ${fmtW(seq.tfsaMo)}/mo × ${seq.noorYear-2026} yrs @ 5%`)}
       ${verdictBlock(seq.noorSurplus>=0, seq.noorSurplus, 'Noor\'s')}
     </div>
 
@@ -1002,7 +1017,7 @@ function renderWfSection() {
       ${row('Wedding budget', goalInp('veer'), "today's dollars — edit anytime")}
       ${row('Inflation-adj. goal', fmtW(seq.veerGoal), `2.5%/yr × ${seq.veerYear-2026} yrs`)}
       ${row('TFSA surplus from Noor (${seq.noorYear})', fmtW(seq.afterNoor), `what remains after Noor\'s wedding`)}
-      ${row('TFSA at Veer\'s wedding', fmtW(seq.tfsaAtVeer), `${fmtW(seq.afterNoor)} × (1.05)^${seq.veerYear-seq.noorYear}`)}
+      ${row('TFSA at Veer\'s wedding', fmtW(seq.tfsaAtVeer), `${fmtW(seq.afterNoor)} + ${fmtW(seq.tfsaMo)}/mo × 2 yrs @ 5%`)}
       ${verdictBlock(seq.veerSurplus>=0, seq.veerSurplus, 'Veer\'s')}
     </div>
 
@@ -1011,7 +1026,7 @@ function renderWfSection() {
         <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#2a6e1e;">Retirement — ${seq.retYear} · ${seq.retYear-seq.veerYear} yrs after Veer</span>
       </div>
       ${row('TFSA surplus from Veer (${seq.veerYear})', fmtW(seq.afterVeer), 'what remains after both weddings')}
-      ${row('TFSA at retirement (${seq.retYear})', fmtW(seq.tfsaAtRetirement), `${fmtW(seq.afterVeer)} × (1.05)^${seq.retYear-seq.veerYear} · feeds retirement plan above`)}
+      ${row('TFSA at retirement (${seq.retYear})', fmtW(seq.tfsaAtRetirement), `${fmtW(seq.afterVeer)} + ${fmtW(seq.tfsaMo)}/mo × 1 yr @ 5% · feeds retirement plan above`)}
     </div>
 
     <div style="padding:10px 16px;background:#fafaf8;border-top:1px solid rgba(0,0,0,0.08);">
