@@ -74,6 +74,9 @@
     .rp-col-nominal { display: none !important; }
     .rp-portfolio-row { grid-template-columns: 2fr 1fr 1fr !important; }
     .rp-col-growth { display: none !important; }
+    .line-bar-wrap { display: none !important; }
+    .line-amount { min-width: 60px; }
+    .grand-total-val { font-size: 1.7rem; }
   }
   @media (max-width: 900px) {
     .main-grid { grid-template-columns: 1fr; }
@@ -327,14 +330,44 @@ function getRpBalances() {
     return (it && it.amount !== undefined) ? parseFloat(it.amount) : null;
   };
   return {
-    rrsp:  getAmt(ret, ['RRSP','RSP']),
-    tfsa:  ret.filter(i => i.name.toUpperCase().includes('TFSA')).reduce((s,i)=>s+(parseFloat(i.amount)||0),0) || null,
+    rrsp:  ret.filter(i => i.name.toUpperCase().includes('RRSP') || i.name.toUpperCase().includes('RSP')).reduce((s,i)=>s+(parseFloat(i.amount)||0),0),
+    tfsa:  ret.filter(i => i.name.toUpperCase().includes('TFSA')).reduce((s,i)=>s+(parseFloat(i.amount)||0),0),
     rpp:   getAmt(ret, ['RPP']),
     btc:   getAmt(ret, ['BTC']),
     india: getAmt(others, ['India']),
     wood:  fsData.real_estate && fsData.real_estate.woodstock ? parseFloat(fsData.real_estate.woodstock.value)||0 : null,
     resp:  fsData.investments.kids && fsData.investments.kids.items[0] ? parseFloat(fsData.investments.kids.items[0].amount)||0 : null,
   };
+}
+
+// ============================================================
+// TFSA SEQUENCING — single source of truth used by both
+// Retirement Plan and Wedding Fund sections.
+// TFSA grows at 5%, funds Noor's wedding (2048) first,
+// then Veer's (2050), remainder rolls into retirement (2051).
+// ============================================================
+function calcTfsaSequence() {
+  const tfsaNow = getTfsaBalance();
+  const r = 0.05, inf = 0.025, baseYear = 2026, retYear = 2051;
+  const noorYear = new Date(wfData.noor.born).getFullYear() + wfData.noor.weddingAge;
+  const veerYear = new Date(wfData.veer.born).getFullYear() + wfData.veer.weddingAge;
+  const noorGoal = wfData.noor.goalToday * Math.pow(1+inf, noorYear - baseYear);
+  const veerGoal = wfData.veer.goalToday * Math.pow(1+inf, veerYear - baseYear);
+  // Step 1: grow to Noor's wedding, pay her share
+  const tfsaAtNoor  = tfsaNow  * Math.pow(1+r, noorYear - baseYear);
+  const noorSurplus = tfsaAtNoor - noorGoal;
+  const afterNoor   = Math.max(0, noorSurplus);
+  // Step 2: remainder grows to Veer's wedding, pay his share
+  const tfsaAtVeer  = afterNoor * Math.pow(1+r, veerYear - noorYear);
+  const veerSurplus = tfsaAtVeer - veerGoal;
+  const afterVeer   = Math.max(0, veerSurplus);
+  // Step 3: remainder grows to retirement
+  const tfsaAtRetirement = afterVeer * Math.pow(1+r, retYear - veerYear);
+  return { tfsaNow, noorYear, veerYear, retYear,
+           noorGoal, veerGoal,
+           tfsaAtNoor, noorSurplus, afterNoor,
+           tfsaAtVeer, veerSurplus, afterVeer,
+           tfsaAtRetirement };
 }
 
 // ============================================================
@@ -595,33 +628,35 @@ function renderRpSection() {
   rpNeedsRefresh = false;
   const inf=0.025, r=0.05, re=0.025, btcR=0.08, yrs=25;
   const defl=Math.pow(1+inf,yrs);
-  const fv=(pv,c,rate,n)=>pv*Math.pow(1+rate,n)+c*(Math.pow(1+rate,n)-1)/rate;
+  const fv=(pv,cMo,rate,n)=>{const r=rate/12,nm=n*12;return pv*Math.pow(1+r,nm)+cMo*(Math.pow(1+r,nm)-1)/r;}; // monthly compounding
   const fmt=n=>"$"+Math.round(n).toLocaleString("en-CA");
   const fmtM=n=>fmt(n)+"/mo";
   const contrib=window.rpContrib||{rrsp:1250,tfsa:1208,rpp:500,resp:580};
   window.rpContrib=contrib;
   const bal=getRpBalances();
-  const rrspNow=(bal.rrsp!=null)?bal.rrsp:70252;
-  const tfsaNow=(bal.tfsa!=null)?bal.tfsa:6735;
+  const rrspNow=(bal.rrsp>0)?bal.rrsp:70252;
+  const tfsaNow=(bal.tfsa>0)?bal.tfsa:6735;
   const rppNow=(bal.rpp!=null)?bal.rpp:25979;
   const btcNow=(bal.btc!=null)?bal.btc:12000;
   const indiaNow=(bal.india!=null)?bal.india:300000;
   const woodNow=(bal.wood!=null)?bal.wood:216667;
   const respNow=(bal.resp!=null)?bal.resp:39837;
-  const rrsp65=fv(rrspNow,contrib.rrsp*12,r,yrs);
-  const tfsa65=fv(tfsaNow,contrib.tfsa*12,r,yrs);
-  const rpp65=fv(rppNow,contrib.rpp*12,r,yrs);
+  const rrsp65=fv(rrspNow,contrib.rrsp,r,yrs);
+  // TFSA: grows sequentially — funds Noor (2048) then Veer (2050), remainder to retirement
+  const tfsaSeq=calcTfsaSequence();
+  const tfsa65=tfsaSeq.tfsaAtRetirement; // what's left for retirement after both weddings
+  const rpp65=fv(rppNow,contrib.rpp,r,yrs);
   const btc65=btcNow*Math.pow(1+btcR,yrs);
   const india65=indiaNow*Math.pow(1+re,yrs);
   const wood65=woodNow*Math.pow(1+re,yrs);
   const liquid=rrsp65+tfsa65+rpp65+btc65+india65+wood65;
   const liqReal=liquid/defl;
   const nyr=12,vyr=14,cesg=1000,respAnnual=contrib.resp*12+cesg;
-  const respNoor=fv(respNow,respAnnual,r,nyr);
+  const respNoor=fv(respNow,respAnnual/12,r,nyr);
   const cn=120000*Math.pow(1+inf,nyr);
   const cv=120000*Math.pow(1+inf,vyr);
   const rem=Math.max(respNoor-cn,0);
-  const respVeer=fv(rem,respAnnual,r,2);
+  const respVeer=fv(rem,respAnnual/12,r,2);
   const veerGap=Math.max(cv-respVeer,0);
   const topUp=veerGap>0?Math.round(veerGap*(r/12)/(Math.pow(1+r/12,vyr*12)-1)):0;
   const govtMo=3500;
@@ -650,7 +685,7 @@ function renderRpSection() {
   const rpEditStyle=rpEditMode?"border:1px solid rgba(42,110,30,0.35);background:rgba(42,110,30,0.1);color:#2a6e1e;":"border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#333330;";
   const tableRows=[
     {name:"RRSP",growth:"5% / 2.5% real",real:rrsp65/defl,key:"rrsp",contrib:contrib.rrsp},
-    {name:"TFSA — XEQT",growth:"5% / 2.5% real",real:tfsa65/defl,key:"tfsa",contrib:contrib.tfsa},
+    {name:"TFSA (post-weddings)",growth:"5% lump-sum",real:tfsa65/defl,key:null,contrib:null},
     {name:"RPP — Rani",growth:"5% / 2.5% real",real:rpp65/defl,key:"rpp",contrib:contrib.rpp},
     {name:"BTC (hold)",growth:"8% / 5.5% real",real:btc65/defl,key:null,contrib:null},
     {name:"India (sell at 65)",growth:"2.5% = inflation",real:india65/defl,key:null,contrib:null},
@@ -708,7 +743,7 @@ function renderRpSection() {
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr;padding:9px 12px;background:#f4f3ef;border-top:1px solid rgba(0,0,0,0.1);" class="rp-portfolio-row">
           <span style="font-size:13px;font-weight:600;color:#0d0d0b;">Total liquid</span><span></span>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
-            <span style="font-size:12px;font-weight:600;color:#1a5280;">${fmtM(contrib.rrsp+contrib.tfsa+contrib.rpp)} contributions</span>
+            <span style="font-size:12px;font-weight:600;color:#1a5280;">${fmtM(contrib.rrsp+contrib.rpp)} contributions (excl. TFSA)</span>
             <span style="font-size:13px;font-weight:700;color:#2a6e1e;">${fmt(liqReal)}</span>
           </div>
         </div>
@@ -822,8 +857,8 @@ window.toggleRpEdit = () => requireEditPassword(() => { rpEditMode=!rpEditMode; 
 // WEDDING FUND — defined BEFORE it's called
 // ============================================================
 const WF_DEFAULTS = {
-  noor: { name:"Noor", born:"2020-07-23", weddingAge:28, goalToday:100000, tfsaAlloc:50000, returnRate:5 },
-  veer: { name:"Veer", born:"2022-03-23", weddingAge:28, goalToday:100000, tfsaAlloc:50000, returnRate:5 }
+  noor: { name:"Noor", born:"2020-07-23", weddingAge:28, goalToday:100000 },
+  veer: { name:"Veer", born:"2022-03-23", weddingAge:28, goalToday:100000 }
 };
 let wfData = JSON.parse(JSON.stringify(WF_DEFAULTS));
 let wfSaveTimer = null;
@@ -852,19 +887,14 @@ window.updateWf = (child, field, val) => {
   const parsed = parseFloat(val);
   if (val===''||val==='-') return;
   wfData[child][field] = isNaN(parsed) ? wfData[child][field] : parsed;
-  renderWfSection(); saveWfData();
+  renderWfSection();
+  renderRpSection(); // keep retirement in sync — TFSA surplus feeds retirement
+  saveWfData();
 };
 
-function wfCalc(child) {
-  const d = wfData[child];
-  const weddingYear = new Date(d.born).getFullYear() + d.weddingAge;
-  const yrs = Math.max(1, weddingYear - 2026);
-  const r = (d.returnRate || 5) / 100;
-  const goalInflated = d.goalToday * Math.pow(1.025, yrs);
-  const projected = d.tfsaAlloc * Math.pow(1+r, yrs);
-  const allocNeeded = goalInflated / Math.pow(1+r, yrs);
-  const surplus = projected - goalInflated;
-  return { weddingYear, yrs, goalInflated, projected, allocNeeded, surplus };
+function wfCalc() {
+  // Delegates entirely to the shared TFSA sequence calculator
+  return calcTfsaSequence();
 }
 
 function getTfsaBalance() {
@@ -877,16 +907,15 @@ function renderWfSection() {
   const container = document.getElementById("wf-container");
   if (!container) return;
   const fmtW = n => "$"+Math.round(n).toLocaleString("en-CA");
-  const tfsaBal = getTfsaBalance();
-  const totalAlloc = wfData.noor.tfsaAlloc + wfData.veer.tfsaAlloc;
-  const tfsaRemaining = tfsaBal - totalAlloc;
-  const tfsaOk = tfsaRemaining >= 0;
+  const seq = calcTfsaSequence();
+  const tfsaOk = seq.noorSurplus >= 0;
+  const veerOk = seq.veerSurplus >= 0;
   const wfEditStyle = rpEditMode
     ? "border:1px solid rgba(42,110,30,0.35);background:rgba(42,110,30,0.1);color:#2a6e1e;"
     : "border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#333330;";
 
-  const row = (label, val, note) => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 16px;border-bottom:0.5px solid rgba(0,0,0,0.05);gap:12px;" onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+  const row = (label, val, note, highlight) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 16px;border-bottom:0.5px solid rgba(0,0,0,0.05);gap:12px;${highlight?'background:'+highlight+';':''}" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
       <div style="min-width:0;">
         <div style="font-size:13px;color:#333;">${label}</div>
         <div style="font-size:11px;color:#aaa;margin-top:1px;">${note}</div>
@@ -894,67 +923,78 @@ function renderWfSection() {
       <div style="flex-shrink:0;text-align:right;">${val}</div>
     </div>`;
 
-  const childBlock = (key) => {
+  const goalInp = (key) => {
     const d = wfData[key];
-    const c = wfCalc(key);
-    const ok = c.surplus >= 0;
-    const accentColor = key==='noor' ? '#7a3080' : '#1a6b8a';
-    const goalInp = `<input type="number" value="${d.goalToday}" oninput="updateWf('${key}','goalToday',this.value)" onfocus="this.select()" style="background:#fff;border:1px solid rgba(122,48,128,0.35);border-radius:6px;font-size:13px;font-weight:600;font-family:inherit;color:#7a3080;width:110px;text-align:right;outline:none;padding:4px 8px;">`;
-    const allocInp = rpEditMode
-      ? `<input type="number" value="${d.tfsaAlloc}" oninput="updateWf('${key}','tfsaAlloc',this.value)" onfocus="this.select()" style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:13px;font-weight:600;font-family:inherit;color:#1a5280;width:110px;text-align:right;outline:none;padding:4px 8px;">`
-      : `<span style="font-size:13px;font-weight:600;color:#1a5280;">${fmtW(d.tfsaAlloc)}</span>`;
-    return `
-      <div style="border-top:1px solid rgba(0,0,0,0.08);">
-        <div style="padding:10px 16px;background:rgba(${key==='noor'?'122,48,128':'26,107,138'},0.05);">
-          <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:${accentColor};">${d.name} — Wedding ~${c.weddingYear} · ${c.yrs} yrs away</span>
-        </div>
-        ${row('Wedding budget', goalInp, "today's dollars — edit anytime")}
-        ${row('Inflation-adj. goal', fmtW(c.goalInflated), `2.5%/yr × ${c.yrs} yrs = ${fmtW(c.goalInflated)}`)}
-        ${row('TFSA allocation today', allocInp, 'earmarked from existing TFSA · edit in Edit mode')}
-        ${row('Min. allocation needed', fmtW(c.allocNeeded), `lump sum needed now at 5%/yr to hit goal`)}
-        ${row('Projected at wedding', fmtW(c.projected), `${fmtW(d.tfsaAlloc)} × (1.05)^${c.yrs}`)}
-        <div style="padding:11px 16px;background:${ok?'#f0f7ee':'#fff8f8'};">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-            <span style="font-size:13px;font-weight:600;color:${ok?'#2a6e1e':'#a02020'};">${ok?'✓ On track':'✗ Shortfall'}</span>
-            <span style="font-family:'DM Serif Display',serif;font-size:1.15rem;color:${ok?'#2a6e1e':'#a02020'};">${ok?'+':'-'}${fmtW(Math.abs(c.surplus))}</span>
-          </div>
-          <div style="font-size:11px;color:${ok?'#6a9e6a':'#c06060'};margin-top:3px;">${ok
-            ? `${fmtW(d.tfsaAlloc)} grows to ${fmtW(c.projected)} — ${fmtW(c.surplus)} surplus`
-            : `Need ${fmtW(c.allocNeeded)} today — increase earmark by ${fmtW(Math.ceil(c.allocNeeded - d.tfsaAlloc))}`
-          }</div>
-        </div>
-      </div>`;
+    return `<input type="number" value="${d.goalToday}" oninput="updateWf('${key}','goalToday',this.value)" onfocus="this.select()" style="background:#fff;border:1px solid rgba(122,48,128,0.35);border-radius:6px;font-size:13px;font-weight:600;font-family:inherit;color:#7a3080;width:min(110px,35vw);text-align:right;outline:none;padding:4px 8px;">`;
   };
+
+  const verdictBlock = (ok, surplus, label) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 16px;background:${ok?'#f0f7ee':'#fff8f8'};">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:${ok?'#2a6e1e':'#a02020'};">${ok?'✓ TFSA covers '+label+' wedding':'✗ TFSA shortfall for '+label}</div>
+        <div style="font-size:11px;color:${ok?'#6a9e6a':'#c06060'};margin-top:2px;">${ok?'Surplus of '+fmtW(surplus)+' continues growing':'Need '+fmtW(Math.abs(surplus))+' more in TFSA to cover this wedding'}</div>
+      </div>
+      <span style="font-family:'DM Serif Display',serif;font-size:1.15rem;color:${ok?'#2a6e1e':'#a02020'};">${ok?'+':'-'}${fmtW(Math.abs(surplus))}</span>
+    </div>`;
 
   container.innerHTML = `
     <div style="padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.08);background:#fafaf8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-      <span style="font-size:11px;color:#aaa;">existing TFSA · 2.5% inflation · 5% return · lump-sum</span>
+      <span style="font-size:11px;color:#aaa;">TFSA → Noor (2048) → Veer (2050) → Retirement (2051) · 5%/yr · 2.5% inflation</span>
       <div style="display:flex;align-items:center;gap:8px;">
         <span id="wf-saved" style="font-size:12px;color:#2a6e1e;opacity:0;transition:opacity 0.3s;">✓ Saved</span>
         <button onclick="toggleWfEdit()" style="font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;${wfEditStyle}">${rpEditMode?'✓ Done':'✎ Edit'}</button>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid rgba(0,0,0,0.08);">
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));border-bottom:1px solid rgba(0,0,0,0.08);">
       <div style="padding:12px 14px;border-right:1px solid rgba(0,0,0,0.06);">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:4px;">TFSA total</div>
-        <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#1a5280;">${fmtW(tfsaBal)}</div>
-        <div style="font-size:10px;color:#aaa;margin-top:2px;">Manny + Rani</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:4px;">TFSA today</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#1a5280;">${fmtW(seq.tfsaNow)}</div>
+        <div style="font-size:10px;color:#aaa;margin-top:2px;">Manny + Rani combined</div>
       </div>
       <div style="padding:12px 14px;border-right:1px solid rgba(0,0,0,0.06);">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:4px;">Earmarked</div>
-        <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#7a3080;">${fmtW(totalAlloc)}</div>
-        <div style="font-size:10px;color:#aaa;margin-top:2px;">Noor + Veer</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:4px;">After both weddings</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:${seq.afterVeer>0?'#2a6e1e':'#a02020'};">${fmtW(seq.afterVeer)}</div>
+        <div style="font-size:10px;color:#aaa;margin-top:2px;">at Veer's wedding (${seq.veerYear})</div>
       </div>
       <div style="padding:12px 14px;">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:4px;">Remaining</div>
-        <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:${tfsaOk?'#2a6e1e':'#a02020'};">${fmtW(Math.abs(tfsaRemaining))}</div>
-        <div style="font-size:10px;color:${tfsaOk?'#aaa':'#c06060'};margin-top:2px;">${tfsaOk?'for retirement':'over-allocated!'}</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:4px;">TFSA → retirement</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:${seq.tfsaAtRetirement>0?'#2a6e1e':'#a02020'};">${fmtW(seq.tfsaAtRetirement)}</div>
+        <div style="font-size:10px;color:#aaa;margin-top:2px;">grows ${seq.veerYear}→${seq.retYear}</div>
       </div>
     </div>
-    ${childBlock('noor')}
-    ${childBlock('veer')}
+
+    <div style="border-top:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:10px 16px;background:rgba(122,48,128,0.05);">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#7a3080;">Noor — Wedding ~${seq.noorYear} · ${seq.noorYear-2026} yrs away</span>
+      </div>
+      ${row('Wedding budget', goalInp('noor'), "today's dollars — edit anytime")}
+      ${row('Inflation-adj. goal', fmtW(seq.noorGoal), `2.5%/yr × ${seq.noorYear-2026} yrs`)}
+      ${row('TFSA at Noor's wedding', fmtW(seq.tfsaAtNoor), `${fmtW(seq.tfsaNow)} × (1.05)^${seq.noorYear-2026}`)}
+      ${verdictBlock(seq.noorSurplus>=0, seq.noorSurplus, 'Noor's')}
+    </div>
+
+    <div style="border-top:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:10px 16px;background:rgba(26,107,138,0.05);">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#1a6b8a;">Veer — Wedding ~${seq.veerYear} · ${seq.veerYear-2026} yrs away</span>
+      </div>
+      ${row('Wedding budget', goalInp('veer'), "today's dollars — edit anytime")}
+      ${row('Inflation-adj. goal', fmtW(seq.veerGoal), `2.5%/yr × ${seq.veerYear-2026} yrs`)}
+      ${row('TFSA surplus from Noor (${seq.noorYear})', fmtW(seq.afterNoor), `what remains after Noor's wedding`)}
+      ${row('TFSA at Veer's wedding', fmtW(seq.tfsaAtVeer), `${fmtW(seq.afterNoor)} × (1.05)^${seq.veerYear-seq.noorYear}`)}
+      ${verdictBlock(seq.veerSurplus>=0, seq.veerSurplus, 'Veer's')}
+    </div>
+
+    <div style="border-top:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:10px 16px;background:rgba(42,110,30,0.04);">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#2a6e1e;">Retirement — ${seq.retYear} · ${seq.retYear-seq.veerYear} yrs after Veer</span>
+      </div>
+      ${row('TFSA surplus from Veer (${seq.veerYear})', fmtW(seq.afterVeer), 'what remains after both weddings')}
+      ${row('TFSA at retirement (${seq.retYear})', fmtW(seq.tfsaAtRetirement), `${fmtW(seq.afterVeer)} × (1.05)^${seq.retYear-seq.veerYear} · feeds retirement plan above`)}
+    </div>
+
     <div style="padding:10px 16px;background:#fafaf8;border-top:1px solid rgba(0,0,0,0.08);">
-      <div style="font-size:10px;color:#aaa;line-height:1.6;">Strategy: earmark from existing TFSA · 100% equity (XEQT) now · shift to bonds ~age 20 · cash/GICs in final 2–3 yrs before wedding</div>
+      <div style="font-size:10px;color:#aaa;line-height:1.6;">Strategy: one TFSA pool · 100% equity (XEQT) throughout · shift each child's share to bonds ~age 20 · cash/GICs in final 2–3 yrs · surplus always feeds retirement</div>
     </div>`;
 }
 window.toggleWfEdit = () => requireEditPassword(() => { rpEditMode=!rpEditMode; renderWfSection(); });
