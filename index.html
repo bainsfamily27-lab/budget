@@ -661,7 +661,7 @@ function renderRpSection() {
   const fv=(pv,cMo,rate,n)=>{const r=rate/12,nm=n*12;return pv*Math.pow(1+r,nm)+cMo*(Math.pow(1+r,nm)-1)/r;}; // monthly compounding
   const fmt=n=>"$"+Math.round(n).toLocaleString("en-CA");
   const fmtM=n=>fmt(n)+"/mo";
-  const contrib=window.rpContrib||{rrsp:1250,tfsa:1208,rpp:500,resp:580};
+  const contrib=window.rpContrib||{rrsp:1250,rpp:500,resp:580}; // tfsa contrib comes from budget section via getTfsaMonthlyContrib()
   window.rpContrib=contrib;
   const bal=getRpBalances();
   const rrspNow=(bal.rrsp>0)?bal.rrsp:70252;
@@ -679,8 +679,16 @@ function renderRpSection() {
   const btc65=btcNow*Math.pow(1+btcR,yrs);
   const india65=indiaNow*Math.pow(1+re,yrs);
   const wood65=woodNow*Math.pow(1+re,yrs);
-  const liquid=rrsp65+tfsa65+rpp65+btc65+india65+wood65;
+  // Tax adjustment: RRSP + RPP are pre-tax — withdrawals taxed as income
+  // Apply 25% effective tax rate (conservative estimate for Ontario at retirement)
+  const TAX_RATE = 0.25;
+  const rrsp65AfterTax = rrsp65 * (1 - TAX_RATE);
+  const rpp65AfterTax  = rpp65  * (1 - TAX_RATE);
+  // TFSA, BTC, India, Woodstock are after-tax (no haircut)
+  const liquid=rrsp65AfterTax+tfsa65+rpp65AfterTax+btc65+india65+wood65;
+  const liquidPreTax=rrsp65+tfsa65+rpp65+btc65+india65+wood65; // for reference
   const liqReal=liquid/defl;
+  const liqRealPreTax=liquidPreTax/defl; // shown as reference
   const nyr=12,vyr=14,cesg=1000,respAnnual=contrib.resp*12+cesg;
   const respNoor=fv(respNow,respAnnual/12,r,nyr);
   const cn=120000*Math.pow(1+inf,nyr);
@@ -714,9 +722,9 @@ function renderRpSection() {
     :`<span style="font-size:13px;font-weight:600;color:#1a5280;">${fmt(val)}</span>`;
   const rpEditStyle=rpEditMode?"border:1px solid rgba(42,110,30,0.35);background:rgba(42,110,30,0.1);color:#2a6e1e;":"border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#333330;";
   const tableRows=[
-    {name:"RRSP",growth:"5% / 2.5% real",real:rrsp65/defl,key:"rrsp",contrib:contrib.rrsp},
+    {name:"RRSP (after 25% tax)",growth:"5% / 2.5% real",real:rrsp65AfterTax/defl,key:"rrsp",contrib:contrib.rrsp},
     {name:"TFSA (post-weddings)",growth:"5% w/ contributions",real:tfsa65/defl,key:null,contrib:null},
-    {name:"RPP — Rani",growth:"5% / 2.5% real",real:rpp65/defl,key:"rpp",contrib:contrib.rpp},
+    {name:"RPP — Rani (after 25% tax)",growth:"5% / 2.5% real",real:rpp65AfterTax/defl,key:"rpp",contrib:contrib.rpp},
     {name:"BTC (hold)",growth:"5% / 2.5% real",real:btc65/defl,key:null,contrib:null},
     {name:"India (sell at 65)",growth:"2.5% = inflation",real:india65/defl,key:null,contrib:null},
     {name:"Woodstock 1/3",growth:"2.5% = inflation",real:wood65/defl,key:null,contrib:null},
@@ -799,7 +807,7 @@ function renderRpSection() {
             <span></span><span style="font-size:10px;color:#2a6e1e;font-weight:600;text-align:right;">Today's $</span>
             <span style="font-size:10px;color:#aaa;text-align:right;">2051 actual</span>
           </div>
-          ${[["RRSP+TFSA+RPP+BTC",(rrsp65+tfsa65+rpp65+btc65)/defl,rrsp65+tfsa65+rpp65+btc65],
+          ${[["RRSP+RPP (pre-tax)",(rrsp65+rpp65)/defl,rrsp65+rpp65],["RRSP+RPP (after 25% tax)",(rrsp65AfterTax+rpp65AfterTax)/defl,rrsp65AfterTax+rpp65AfterTax],["TFSA+BTC (tax-free)",(tfsa65+btc65)/defl,tfsa65+btc65],
              ["India property",india65/defl,india65],
              ["Woodstock 1/3",wood65/defl,wood65]].map(([n,real,nom])=>`
           <div style="display:grid;grid-template-columns:2fr 1fr 1fr;align-items:center;margin-bottom:3px;">
@@ -812,7 +820,7 @@ function renderRpSection() {
             <span style="font-size:13px;font-weight:700;color:#2a6e1e;text-align:right;">${fmt(liqReal)}</span>
             <span style="font-size:11px;color:#aaa;text-align:right;">${fmt(liquid)}</span>
           </div>
-          <div style="font-size:10px;color:#aaa;margin-top:6px;font-style:italic;">Today's $ = same purchasing power · 2051 actual = account balance</div>
+          <div style="font-size:10px;color:#aaa;margin-top:6px;font-style:italic;">Today's $ = same purchasing power · 2051 actual = account balance</div><div style="font-size:10px;color:#888;margin-top:4px;">Pre-tax portfolio: ${fmt(liqRealPreTax)} · RRSP/RPP reduced by 25% estimated tax · TFSA/BTC/real estate shown at full value</div>
         </div>
         <div style="padding:12px 14px;background:${surplus>0?'#f0f7ee':'#fff8f8'};">
           <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:${surplus>0?'#2a6e1e':'#a02020'};margin-bottom:8px;">Step 4 — Verdict</div>
