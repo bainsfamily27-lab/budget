@@ -639,7 +639,7 @@ window.toggleFsEdit = () => requireEditPassword(() => { fsEditMode=!fsEditMode; 
 // ============================================================
 function injectSections() {
   if (document.getElementById('private-wrapper')) {
-    renderFsSection(); renderRpSection(); return;
+    renderFsSection(); renderRpSection(); renderWfSection(); return;
   }
   const appEl = document.getElementById("app");
   if (!appEl) return;
@@ -650,7 +650,9 @@ function injectSections() {
     <div style="font-family:'DM Serif Display',serif;font-size:1.4rem;color:#0d0d0b;margin-bottom:16px;">Financial Summary</div>
     <div id="fs-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;margin-bottom:32px;"></div>
     <div style="font-family:'DM Serif Display',serif;font-size:1.4rem;color:#0d0d0b;margin-bottom:16px;">Retirement Plan</div>
-    <div id="rp-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;margin-bottom:32px;"></div>`;
+    <div id="rp-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;margin-bottom:32px;"></div>
+    <div style="font-family:'DM Serif Display',serif;font-size:1.4rem;color:#0d0d0b;margin-bottom:16px;">Wedding Fund</div>
+    <div id="wf-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;margin-bottom:32px;"></div>`;
   appEl.appendChild(wrapper);
   Promise.all([loadFsData(), loadRpData(), loadWfData()]).then(() => {
     renderFsSection(); renderRpSection(); renderWfSection();
@@ -1058,7 +1060,7 @@ function renderRpSection() {
       </div>
     </div>
 
-    ${renderWfInRp()}`;
+    `;
 }
 
 window.toggleRpEdit = () => requireEditPassword(() => { rpEditMode=!rpEditMode; renderRpSection(); });
@@ -1101,7 +1103,7 @@ window.updateWf = (child, field, val) => {
   const parsed = parseFloat(val);
   if (val===''||val==='-') return;
   wfData[child][field] = isNaN(parsed) ? wfData[child][field] : parsed;
-  renderRpSection();
+  renderWfSection();
   saveWfData();
 };
 
@@ -1221,8 +1223,101 @@ function renderWfInRp() {
 }
 
 function renderWfSection() {
-  renderRpSection();
+  const container = document.getElementById("wf-container");
+  if (!container) return;
+
+  const fmtW = n => "$"+Math.round(n).toLocaleString("en-CA");
+  const tfsaBal = getTfsaBalance();
+  const totalAlloc = wfData.noor.tfsaAlloc + wfData.veer.tfsaAlloc;
+  const tfsaRemaining = tfsaBal - totalAlloc;
+  const tfsaOk = tfsaRemaining >= 0;
+
+  const wfEditStyle = rpEditMode
+    ? "border:1px solid rgba(42,110,30,0.35);background:rgba(42,110,30,0.1);color:#2a6e1e;"
+    : "border:1px solid rgba(0,0,0,0.15);background:rgba(0,0,0,0.05);color:#333330;";
+
+  const childBlock = (key) => {
+    const d = wfData[key];
+    const c = wfCalc(key);
+    const ok = c.surplus >= 0;
+    const accentColor = key==='noor' ? '#7a3080' : '#1a6b8a';
+
+    const goalInp = `<input type="number" value="${d.goalToday}" oninput="updateWf('${key}','goalToday',this.value)" onfocus="this.select()" style="background:#fff;border:1px solid rgba(122,48,128,0.35);border-radius:6px;font-size:13px;font-weight:600;font-family:inherit;color:#7a3080;width:100px;text-align:right;outline:none;padding:3px 8px;">`;
+
+    const allocInp = rpEditMode
+      ? `<input type="number" value="${d.tfsaAlloc}" oninput="updateWf('${key}','tfsaAlloc',this.value)" onfocus="this.select()" style="background:#fff;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:13px;font-weight:600;font-family:inherit;color:#1a5280;width:100px;text-align:right;outline:none;padding:3px 8px;">`
+      : `<span style="font-size:13px;font-weight:600;color:#1a5280;">${fmtW(d.tfsaAlloc)}</span>`;
+
+    const row = (label, val, note) => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;border-bottom:0.5px solid rgba(0,0,0,0.05);gap:8px;" onmouseover="this.style.background='#f8f7f4'" onmouseout="this.style.background='transparent'">
+        <div style="min-width:0;">
+          <div style="font-size:13px;color:#333;">${label}</div>
+          <div style="font-size:11px;color:#aaa;margin-top:1px;">${note}</div>
+        </div>
+        <div style="flex-shrink:0;text-align:right;">${val}</div>
+      </div>`;
+
+    return `
+      <div style="border-top:1px solid rgba(0,0,0,0.08);">
+        <div style="padding:10px 16px;background:rgba(${key==='noor'?'122,48,128':'26,107,138'},0.05);">
+          <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:${accentColor};">${d.name} — Wedding ~${c.weddingYear} · ${c.yrs} yrs away</span>
+        </div>
+        ${row('Wedding budget', goalInp, 'today\'s dollars — edit anytime')}
+        ${row('Inflation-adj. goal', fmtW(c.goalInflated), `2.5%/yr × ${c.yrs} yrs`)}
+        ${row('TFSA allocation today', allocInp, 'earmarked from existing TFSA')}
+        ${row('Min. allocation needed', fmtW(c.allocNeeded), 'lump sum at 5%/yr to hit goal')}
+        ${row('Projected at wedding', fmtW(c.projected), `${fmtW(d.tfsaAlloc)} × (1.05)^${c.yrs}`)}
+        <div style="padding:10px 16px;background:${ok?'#f0f7ee':'#fff8f8'};">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <span style="font-size:13px;font-weight:600;color:${ok?'#2a6e1e':'#a02020'};">${ok?'✓ On track':'✗ Shortfall'}</span>
+            <span style="font-family:'DM Serif Display',serif;font-size:1.15rem;color:${ok?'#2a6e1e':'#a02020'};">${ok?'+':'-'}${fmtW(Math.abs(c.surplus))}</span>
+          </div>
+          <div style="font-size:11px;color:${ok?'#6a9e6a':'#c06060'};margin-top:3px;">${ok
+            ? `${fmtW(d.tfsaAlloc)} grows to ${fmtW(c.projected)} — ${fmtW(c.surplus)} surplus`
+            : `Need ${fmtW(c.allocNeeded)} today — increase earmark by ${fmtW(Math.ceil(c.allocNeeded - d.tfsaAlloc))}`
+          }</div>
+        </div>
+      </div>`;
+  };
+
+  const nC = wfCalc('noor'), vC = wfCalc('veer');
+
+  container.innerHTML = `
+    <div style="padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.08);background:#fafaf8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <span style="font-size:11px;color:#aaa;">existing TFSA · 2.5% inflation · 5% return · lump-sum</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span id="wf-saved" style="font-size:12px;color:#2a6e1e;opacity:0;transition:opacity 0.3s;">✓ Saved</span>
+        <button onclick="toggleWfEdit()" style="font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;${wfEditStyle}">${rpEditMode?'✓ Done':'✎ Edit'}</button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:12px 14px;border-right:1px solid rgba(0,0,0,0.06);">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:4px;">TFSA total</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#1a5280;">${fmtW(tfsaBal)}</div>
+        <div style="font-size:10px;color:#aaa;margin-top:2px;">Manny + Rani</div>
+      </div>
+      <div style="padding:12px 14px;border-right:1px solid rgba(0,0,0,0.06);">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:4px;">Earmarked</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#7a3080;">${fmtW(totalAlloc)}</div>
+        <div style="font-size:10px;color:#aaa;margin-top:2px;">Noor + Veer</div>
+      </div>
+      <div style="padding:12px 14px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:#888;margin-bottom:4px;">Remaining</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:${tfsaOk?'#2a6e1e':'#a02020'};">${fmtW(Math.abs(tfsaRemaining))}</div>
+        <div style="font-size:10px;color:${tfsaOk?'#aaa':'#c06060'};margin-top:2px;">${tfsaOk?'for retirement':'over-allocated!'}</div>
+      </div>
+    </div>
+
+    ${childBlock('noor')}
+    ${childBlock('veer')}
+
+    <div style="padding:10px 16px;background:#fafaf8;border-top:1px solid rgba(0,0,0,0.08);">
+      <div style="font-size:10px;color:#aaa;line-height:1.6;">Strategy: earmark from existing TFSA · 100% equity (XEQT) now · shift to bonds ~age 20 · cash/GICs in final 2–3 yrs</div>
+    </div>`;
 }
+
+window.toggleWfEdit = () => requireEditPassword(() => { rpEditMode=!rpEditMode; renderWfSection(); });
 </script>
 </body>
 </html>
