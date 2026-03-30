@@ -505,7 +505,7 @@ window.toggleFsEdit = () => requireEditPassword(() => { fsEditMode=!fsEditMode; 
 // ============================================================
 function injectSections() {
   if (document.getElementById('private-wrapper')) {
-    renderFsSection(); renderRpSection(); renderWfSection(); return;
+    renderFsSection(); renderRpSection(); renderWfSection(); renderInsSection(); renderActionSection(); renderActionSection(); return;
   }
   const appEl = document.getElementById("app");
   if (!appEl) return;
@@ -518,10 +518,14 @@ function injectSections() {
     <div class="sec-title">Retirement Plan</div>
     <div id="rp-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;margin-bottom:32px;"></div>
     <div class="sec-title">Wedding Fund</div>
-    <div id="wf-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;margin-bottom:32px;"></div>`;
+    <div id="wf-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;margin-bottom:32px;"></div>
+    <div class="sec-title">Life Insurance</div>
+    <div id="ins-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;margin-bottom:32px;"></div>
+    <div class="sec-title">Action Items</div>
+    <div id="action-container" style="background:#fff;border:1px solid rgba(0,0,0,0.13);border-radius:12px;overflow:hidden;margin-bottom:32px;"></div>`;
   appEl.appendChild(wrapper);
   Promise.all([loadFsData(), loadRpData(), loadWfData()]).then(() => {
-    renderFsSection(); renderRpSection(); renderWfSection();
+    renderFsSection(); renderRpSection(); renderWfSection(); renderInsSection();
   });
 }
 
@@ -1058,6 +1062,210 @@ function renderWfSection() {
     </div>`;
 }
 window.toggleWfEdit = () => requireEditPassword(() => { rpEditMode=!rpEditMode; renderWfSection(); });
+// ============================================================
+// LIFE INSURANCE SECTION — static reference, no Firebase needed
+// ============================================================
+function renderInsSection() {
+  const container = document.getElementById("ins-container");
+  if (!container) return;
+
+  const fmtM = n => "$"+Number(n).toLocaleString("en-CA",{minimumFractionDigits:2,maximumFractionDigits:2})+"/mo";
+
+  const card = (opts) => `
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:10px 16px;background:rgba(${opts.rgb},0.05);">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:rgb(${opts.rgb});">${opts.name} — ${opts.type}</span>
+      </div>
+      ${opts.rows.map(([label,val,note])=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;border-bottom:0.5px solid rgba(0,0,0,0.04);gap:8px;">
+        <div style="min-width:0;">
+          <div style="font-size:13px;color:#333;">${label}</div>
+          ${note?`<div style="font-size:11px;color:#aaa;margin-top:1px;">${note}</div>`:''}
+        </div>
+        <div style="flex-shrink:0;font-size:13px;font-weight:600;color:#1a5280;text-align:right;">${val}</div>
+      </div>`).join('')}
+      ${opts.alerts.map(a=>`
+      <div style="padding:9px 16px;background:${a.type==='warn'?'#fff8f0':'#fff8f8'};border-top:0.5px solid rgba(0,0,0,0.05);">
+        <div style="font-size:12px;font-weight:600;color:${a.type==='warn'?'#a06000':'#a02020'};">⚠ ${a.title}</div>
+        <div style="font-size:11px;color:${a.type==='warn'?'#c07820':'#c06060'};margin-top:2px;">${a.body}</div>
+      </div>`).join('')}
+    </div>`;
+
+  container.innerHTML = `
+    <div style="padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.08);background:#fafaf8;">
+      <span style="font-size:11px;color:#aaa;">SunLife SunSpectrum Term 20 · all premiums in today's dollars</span>
+    </div>
+
+    ${card({
+      name:"Manny (Manminder P Bains)", type:"Term 20 · $750,000", rgb:"26,82,128",
+      rows:[
+        ["Current premium","$54.90/mo","Dec 2018 — Dec 2038 · non-smoker class 3"],
+        ["Renewal premium (2038)","$508.50/mo","20-year renewal · jumps Dec 18, 2038"],
+        ["Renewal premium (2058)","$3,256.43/mo","40-year renewal · likely unaffordable"],
+        ["Coverage ends","Dec 18, 2071","Age ~83"],
+        ["Last date to convert","Dec 18, 2061","Convert to permanent before this date"],
+        ["Risk class","Class 3 (non-smoker)","Class 1 is best — ask advisor why Class 3"],
+      ],
+      alerts:[
+        {type:"warn", title:"Premium jump in Dec 2038 — 12 years away", body:"Monthly cost rises from $54.90 to $508.50. Plan ahead: decide by 2038 whether to renew, convert to permanent, or reduce coverage as needs change."},
+        {type:"warn", title:"Review Class 3 rating", body:"Rani is Class 1 (best rate). Manny is Class 3 — this increases premiums significantly. If health has improved since 2018, ask advisor about re-rating at next conversion/renewal."},
+      ]
+    })}
+
+    ${card({
+      name:"Rani (Ranjit K Rai)", type:"Term 20 · $750,000", rgb:"42,110,30",
+      rows:[
+        ["Current premium","$30.60/mo","Dec 2018 — Dec 2038 · non-smoker class 1 (best rate)"],
+        ["Renewal premium (2038)","$264.15/mo","20-year renewal · jumps Dec 18, 2038"],
+        ["Renewal premium (2058)","$1,751.85/mo","40-year renewal · likely unaffordable"],
+        ["Coverage ends","Dec 18, 2072","Age ~72"],
+        ["Last date to convert","Dec 18, 2062","Convert to permanent before this date"],
+        ["Risk class","Class 1 (non-smoker)","Best available rate ✓"],
+      ],
+      alerts:[
+        {type:"warn", title:"Coverage ends Dec 2072 — age ~72", body:"Rani's coverage ends earlier relative to lifespan than Manny's. If long-term coverage is needed, convert to permanent well before Dec 2062."},
+      ]
+    })}
+
+    <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+      <div style="padding:10px 16px;background:rgba(122,48,128,0.05);">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:#7a3080;">Children — Whole Life · $50,000 each</span>
+      </div>
+      ${[
+        ["Noor","$86.22/mo","20-yr premium period ends ~2040","Policy date ~Mar 2020","Guaranteed cash value $50K at 2120","Dividend option: paid-up additional insurance"],
+        ["Veer","$96.95/mo","20-yr premium period ends ~2042","Policy date Mar 28, 2022","Guaranteed cash value $50K at 2122","Dividend option: paid-up additional insurance"],
+      ].map(([name,prem,period,date,gcv,div])=>`
+      <div style="padding:8px 16px;border-bottom:0.5px solid rgba(0,0,0,0.05);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span style="font-size:13px;font-weight:600;color:#333;">${name}</span>
+          <span style="font-size:13px;font-weight:600;color:#7a3080;">${prem}</span>
+        </div>
+        <div style="font-size:11px;color:#aaa;">${period} · ${date}</div>
+        <div style="font-size:11px;color:#888;margin-top:2px;">${gcv} · ${div}</div>
+      </div>`).join('')}
+      <div style="padding:10px 16px;background:#faf5ff;border-top:0.5px solid rgba(122,48,128,0.1);">
+        <div style="font-size:12px;font-weight:600;color:#7a3080;margin-bottom:4px;">Purpose of children's whole life policies</div>
+        <div style="font-size:11px;color:#555;line-height:1.6;">
+          • <strong>Locks in insurability</strong> — if a health condition develops later, coverage cannot be denied<br>
+          • <strong>Cash value builds tax-sheltered</strong> — accessible via policy loan for university, wedding, or emergencies<br>
+          • <strong>Paid-up after ~20 years</strong> — no more premiums, coverage + dividends continue for life<br>
+          • <strong>Dividend additions</strong> — actual death benefit grows beyond $50K over time (could reach $70–100K+ by adulthood)
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:12px 16px;background:#fafaf8;border-top:1px solid rgba(0,0,0,0.08);">
+      <div style="font-size:11px;font-weight:600;color:#333;margin-bottom:6px;">Combined monthly premiums</div>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:#555;">
+        <span>Manny: <strong>$54.90</strong></span>
+        <span>Rani: <strong>$30.60</strong></span>
+        <span>Noor: <strong>$86.22</strong></span>
+        <span>Veer: <strong>$96.95</strong></span>
+        <span style="font-weight:600;color:#0d0d0b;">Total: <strong>$268.67/mo</strong></span>
+      </div>
+      <div style="font-size:11px;color:#a06000;margin-top:8px;font-weight:500;">⚠ Key action: In 2038 adult premiums jump to $772.65/mo combined (+$687/mo). Review coverage needs and conversion options well before that date.</div>
+    </div>`;
+}
+// ============================================================
+// ACTION ITEMS SECTION
+// ============================================================
+function renderActionSection() {
+  const container = document.getElementById("action-container");
+  if (!container) return;
+
+  const actions = [
+    {
+      priority: "high",
+      icon: "📚",
+      title: "Top up RESP for Veer",
+      detail: "Current RESP trajectory leaves Veer ~$107K short for university (2040). Adding ~$440/mo to RESP now closes the gap.",
+      tag: "Education · Act now"
+    },
+    {
+      priority: "high",
+      icon: "🏦",
+      title: "Build emergency fund",
+      detail: "No liquid emergency buffer currently in place. With $13K+/mo in obligations, aim for 3 months (~$35–40K) in a HISA. Reduces risk of pausing investments or carrying high-interest debt during any unexpected event.",
+      tag: "Cash Flow · Priority"
+    },
+    {
+      priority: "medium",
+      icon: "💰",
+      title: "Open and fund Rani's TFSA",
+      detail: "Rani's TFSA balance is currently $0 with substantial unused contribution room. Every dollar in TFSA is worth more than RRSP at retirement (tax-free vs taxed). Consider shifting some monthly savings here.",
+      tag: "Tax Planning · Opportunity"
+    },
+    {
+      priority: "medium",
+      icon: "🛡️",
+      title: "Review Manny's Class 3 insurance rating",
+      detail: "Rani is rated Class 1 (best). Manny is Class 3 — this meaningfully increases premiums. If health has improved since the 2018 application, ask your Sun Life advisor about re-rating before the Dec 2038 renewal.",
+      tag: "Insurance · Review"
+    },
+    {
+      priority: "medium",
+      icon: "⚡",
+      title: "Plan for Dec 2038 insurance premium jump",
+      detail: "Combined adult premiums jump from $85.50/mo to $772.65/mo (+$687/mo) in December 2038 — 12 years away. By then the kids will be ~18 and 16, mortgage smaller. Decide whether to renew at higher rate, reduce coverage, or convert to permanent. Last conversion dates: Manny Dec 2061, Rani Dec 2062.",
+      tag: "Insurance · 2038"
+    },
+    {
+      priority: "low",
+      icon: "🩺",
+      title: "Review disability insurance coverage",
+      detail: "Life insurance covers death but not extended inability to work. With $13K+/mo in obligations, check whether employer group disability coverage is sufficient for both you and Rani.",
+      tag: "Insurance · Review"
+    },
+    {
+      priority: "low",
+      icon: "📈",
+      title: "Prioritize TFSA over RRSP as retirement approaches",
+      detail: "RRSP/RPP carry a ~25% tax haircut at withdrawal. As TFSA contribution room opens each year, consider shifting new savings there. Every $1 in TFSA is worth ~$1.33 vs RRSP in after-tax terms.",
+      tag: "Tax Planning · Long-term"
+    },
+  ];
+
+  const priorityColors = {
+    high:   { bg:"#fff8f8", border:"rgba(160,32,32,0.15)",  tag:"#a02020", dot:"#a02020", label:"High Priority" },
+    medium: { bg:"#fff8f0", border:"rgba(160,96,0,0.15)",   tag:"#a06000", dot:"#e08000", label:"Medium Priority" },
+    low:    { bg:"#f8f9ff", border:"rgba(26,82,128,0.12)",  tag:"#1a5280", dot:"#4a82b0", label:"Low Priority"  },
+  };
+
+  const grouped = ["high","medium","low"].map(p => {
+    const group = actions.filter(a => a.priority === p);
+    if (!group.length) return '';
+    const c = priorityColors[p];
+    return `
+      <div style="border-bottom:1px solid rgba(0,0,0,0.08);">
+        <div style="padding:10px 16px;background:#fafaf8;border-bottom:0.5px solid rgba(0,0,0,0.06);">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${c.tag};">● ${c.label}</span>
+        </div>
+        ${group.map((a,i) => `
+        <div style="padding:12px 16px;border-bottom:0.5px solid rgba(0,0,0,0.05);background:${i%2===0?'#fff':'#fafaf8'};" onmouseover="this.style.background='#f4f4f0'" onmouseout="this.style.background='${i%2===0?'#fff':'#fafaf8'}'">
+          <div style="display:flex;align-items:flex-start;gap:10px;">
+            <span style="font-size:18px;flex-shrink:0;margin-top:1px;">${a.icon}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+                <span style="font-size:13px;font-weight:600;color:#0d0d0b;">${a.title}</span>
+                <span style="font-size:10px;font-weight:600;color:${c.tag};background:${c.bg};border:1px solid ${c.border};padding:2px 8px;border-radius:20px;white-space:nowrap;">${a.tag}</span>
+              </div>
+              <div style="font-size:12px;color:#555;line-height:1.6;">${a.detail}</div>
+            </div>
+          </div>
+        </div>`).join('')}
+      </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div style="padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.08);background:#fafaf8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <span style="font-size:11px;color:#aaa;">${actions.filter(a=>a.priority==='high').length} high priority · ${actions.filter(a=>a.priority==='medium').length} medium · ${actions.filter(a=>a.priority==='low').length} low</span>
+      <span style="font-size:11px;color:#aaa;">Review periodically — update as items are resolved</span>
+    </div>
+    ${grouped}
+    <div style="padding:12px 16px;background:#fafaf8;border-top:1px solid rgba(0,0,0,0.08);">
+      <div style="font-size:11px;color:#aaa;">Based on financial snapshot as of 2026. Not financial advice — consult a licensed advisor for personalized guidance.</div>
+    </div>`;
+}
 </script>
 </body>
 </html>
