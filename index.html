@@ -158,7 +158,7 @@ const CATEGORY_ORDER = ["home","kids","subs","auto","food","phone","invest","oth
 const fmt = n => "$" + Number(n).toLocaleString("en-CA", {minimumFractionDigits:0, maximumFractionDigits:2});
 const sanitize = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 const secTotal = cat => cat.items.reduce((s,i) => s + (parseFloat(i.amount)||0), 0);
-const grandTotal = data => Object.values(data).reduce((s,c) => s + secTotal(c), 0);
+const grandTotal = data => CATEGORY_ORDER.filter(k=>data[k]).reduce((s,k) => s + secTotal(data[k]), 0);
 let data = JSON.parse(JSON.stringify(DEFAULTS));
 let editMode = false, chart = null, saveTimer = null, collapsedSections = {};
 
@@ -189,8 +189,9 @@ async function loadData() {
       const hasTfsaRani  = data.invest.items.some(i => i.name.toUpperCase().includes('TFSA') && i.name.toUpperCase().includes('RANI'));
       if (!hasTfsaManny) data.invest.items.push({name:"TFSA (Manny)", amount:1000});
       if (!hasTfsaRani)  data.invest.items.push({name:"TFSA (Rani)",  amount:0});
-      const gt = Object.values(data).reduce((s,c)=>s+(c.items||[]).reduce((ss,i)=>ss+(parseFloat(i.amount)||0),0),0);
-      console.log("Grand total after merge:", gt.toFixed(2));
+      const gt = CATEGORY_ORDER.filter(k=>data[k]).reduce((s,k)=>s+data[k].items.reduce((ss,i)=>ss+(parseFloat(i.amount)||0),0),0);
+      console.log("Grand total after merge (CATEGORY_ORDER only):", gt.toFixed(2));
+      console.log("All data keys:", Object.keys(data));
     }
   } catch(e) { console.error("loadData error:", e); }
 }
@@ -367,7 +368,7 @@ function openEditModal() {
         <span class="modal-grand" id="modal-grand">Total: ${fmt(grandTotal(data))}/mo</span>
         <span class="modal-saved" id="modal-saved">✓ Saved</span>
         <button class="modal-btn-cancel" onclick="closeEditModal()">Close</button>
-        <button class="modal-btn-save" onclick="saveEditModal()">💾 Save</button>
+        <button class="modal-btn-save" onclick="saveEditModal()">💾 Save to Cloud</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -394,6 +395,9 @@ window.saveEditModal = async () => {
     if (el) { el.style.opacity=1; setTimeout(()=>{el.style.opacity=0;},2500); }
     if (btn) { btn.textContent='✓ Saved!'; btn.style.background='#1a5280'; setTimeout(()=>{ btn.textContent='💾 Save'; btn.style.background=''; btn.disabled=false; },2000); }
     render(); // update main dashboard with new totals
+    // Re-render financial sections that depend on budget data (TFSA contributions etc)
+    if(document.getElementById('rp-container')) renderRpSection();
+    if(document.getElementById('wf-container')) renderWfSection();
   } catch(e) {
     if (btn) { btn.textContent='💾 Save'; btn.disabled=false; }
     alert("Save failed: " + e.message);
