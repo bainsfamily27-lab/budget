@@ -561,7 +561,7 @@ function renderFsSection() {
         </div>`;
       }
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 16px 6px 32px;margin-left:16px;border-left:2px solid rgba(26,82,128,0.1);cursor:pointer;"
-        onclick="requireEditPassword(()=>{window.fsActiveEdit={cat:'${catKey}',idx:${idx}};renderFsSection();setTimeout(()=>{const el=document.getElementById('fs-edit-input');if(el){el.focus();el.select();}},50);}"
+        onclick="(function(){const doEdit=()=>{window.fsActiveEdit={cat:'${catKey}',idx:${idx}};renderFsSection();setTimeout(()=>{const el=document.getElementById('fs-edit-input');if(el){el.focus();el.select();}},50);};fsEditMode?doEdit():requireEditPassword(doEdit);})()"
         onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background='transparent'">
         <span style="font-size:12px;color:#555;">${sanitize(item.name)}</span>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
