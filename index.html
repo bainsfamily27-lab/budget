@@ -140,7 +140,31 @@ let data = JSON.parse(JSON.stringify(DEFAULTS));
 let editMode = false, chart = null, saveTimer = null, collapsedSections = {};
 
 async function loadData() {
-  try { const snap = await db.collection("budget").doc("main").get(); if (snap.exists) data = snap.data(); } catch(e) {}
+  try {
+    const snap = await db.collection("budget").doc("main").get();
+    if (snap.exists) {
+      const saved = snap.data();
+      // Merge: use saved data but ensure all DEFAULTS categories exist
+      // and that each category has all default items if missing
+      data = saved;
+      Object.keys(DEFAULTS).forEach(key => {
+        if (!data[key]) {
+          // Category missing entirely — add it
+          data[key] = JSON.parse(JSON.stringify(DEFAULTS[key]));
+        } else {
+          // Category exists — check for missing items by name
+          DEFAULTS[key].items.forEach(defItem => {
+            const exists = data[key].items.some(i =>
+              i.name.toUpperCase().includes(defItem.name.split('(')[0].trim().toUpperCase())
+            );
+            if (!exists) {
+              data[key].items.push(JSON.parse(JSON.stringify(defItem)));
+            }
+          });
+        }
+      });
+    }
+  } catch(e) {}
 }
 async function saveData() {
   clearTimeout(saveTimer);
@@ -551,9 +575,10 @@ function renderFsSection() {
           <span style="font-size:12px;color:#2a6e1e;font-weight:600;">${sanitize(item.name)}</span>
           <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
             <span style="font-size:11px;color:#888;">$</span>
-            <input id="fs-edit-input" type="number" value="${item.amount}" onfocus="this.select()"
+            <input id="fs-edit-input" type="number" value="${item.amount}"
+              onfocus="this._cleared=false;"
+              onkeydown="if(!this._cleared&&event.key>='0'&&event.key<='9'){this.value='';this._cleared=true;}if(event.key==='Enter'||event.key==='Escape'){window.fsActiveEdit=null;renderFsSection();}"
               oninput="updateFsInv('${catKey}',${idx},'amount',this.value)"
-              onkeydown="if(event.key==='Enter'||event.key==='Escape'){window.fsActiveEdit=null;renderFsSection();}"
               style="background:#fff;border:1px solid rgba(42,110,30,0.4);border-radius:8px;font-size:15px;font-weight:700;font-family:inherit;color:#1a5280;width:110px;text-align:right;outline:none;padding:5px 10px;">
             <button onclick="window.fsActiveEdit=null;renderFsSection();"
               style="background:#2a6e1e;color:#fff;border:none;border-radius:8px;font-size:12px;padding:5px 10px;cursor:pointer;font-family:inherit;">✓</button>
@@ -561,7 +586,7 @@ function renderFsSection() {
         </div>`;
       }
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 16px 6px 32px;margin-left:16px;border-left:2px solid rgba(26,82,128,0.1);cursor:pointer;"
-        onclick="(function(){const doEdit=()=>{window.fsActiveEdit={cat:'${catKey}',idx:${idx}};renderFsSection();setTimeout(()=>{const el=document.getElementById('fs-edit-input');if(el){el.focus();el.select();}},50);};fsEditMode?doEdit():requireEditPassword(doEdit);})()"
+        onclick="(function(){const doEdit=()=>{window.fsActiveEdit={cat:'${catKey}',idx:${idx}};renderFsSection();setTimeout(()=>{const el=document.getElementById('fs-edit-input');if(el){el.focus();}},50);};fsEditMode?doEdit():requireEditPassword(doEdit);})()"
         onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background='transparent'">
         <span style="font-size:12px;color:#555;">${sanitize(item.name)}</span>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
