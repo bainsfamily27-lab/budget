@@ -495,7 +495,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 
   // Load all data in parallel then re-render everything
   try {
-    await Promise.all([loadData(), loadFsData(), loadRpData(), loadWfData()]);
+    await Promise.all([loadData(), loadFsData(), loadRpData(), loadWfData(), loadSettings()]);
     try { render(); } catch(e) { console.error("Post-load render failed:", e); }
     try { injectSections(); } catch(e) { console.error("injectSections failed:", e); }
     setTimeout(() => window.scrollTo(0, 0), 50);
@@ -588,12 +588,12 @@ const FS_DEFAULTS = {
       {name:"RSP (Manny - RBC)",amount:61072},{name:"RPP (Rani - Manulife)",amount:25979},
       {name:"TFSA",amount:6735},{name:"TFSA (Rani)",amount:0}]},
     kids:    { label:"Kids Investment", items:[{name:"RESP (Noor & Veer)",amount:39837}]},
-    others:  { label:"Others",   items:[{name:"Gold",amount:0},{name:"India Property",amount:300000}]},
+    others:  { label:"Others",   items:[{name:"Gold",amount:0},{name:"India Property (Parents - not yet yours)",amount:0}]},
     cash:    { label:"Cash & Savings", items:[{name:"Cash on Hand",amount:0}]}
   },
   real_estate: {
     primary:   {label:"Primary Home",           value:1200000, mortgage:308000},
-    woodstock: {label:"Woodstock Rental (1/3)", value:216667,  mortgage:169333}
+    woodstock: {label:"Woodstock Rental", fullValue:650001, fullMortgage:508000, value:216667, mortgage:169333}
   },
   liabilities: {
     mortgages: {label:"Mortgages", items:[
@@ -618,7 +618,14 @@ async function loadFsData() {
     if (snap.exists) {
       const d = snap.data();
       if (d.investments) fsData.investments = d.investments;
-      if (d.real_estate) fsData.real_estate = d.real_estate;
+      if (d.real_estate) {
+        fsData.real_estate = d.real_estate;
+        // Ensure woodstock always has fullValue/fullMortgage fields
+        if (fsData.real_estate.woodstock && !fsData.real_estate.woodstock.fullValue) {
+          fsData.real_estate.woodstock.fullValue = fsData.real_estate.woodstock.value * 3;
+          fsData.real_estate.woodstock.fullMortgage = fsData.real_estate.woodstock.mortgage * 3;
+        }
+      }
       if (d.liabilities) fsData.liabilities = d.liabilities;
     }
   } catch(e) {}
@@ -680,8 +687,20 @@ window.confirmFsInvEdit = () => {
 };
 window.updateFsRe = (key, field, val) => {
   const p=parseFloat(val); if(val===''||val==='-')return;
-  fsData.real_estate[key][field]=isNaN(p)?0:p;
-  saveFsData(); refreshRetirementIfVisible(); // no re-render while typing
+  if(key==='woodstock' && (field==='fullValue'||field==='fullMortgage')) {
+    // Store full value, auto-calculate 1/3 share
+    fsData.real_estate.woodstock[field]=isNaN(p)?0:p;
+    fsData.real_estate.woodstock.value   = Math.round(fsData.real_estate.woodstock.fullValue/3);
+    fsData.real_estate.woodstock.mortgage= Math.round(fsData.real_estate.woodstock.fullMortgage/3);
+    // Sync liabilities
+    if(fsData.liabilities.mortgages.items[1]) fsData.liabilities.mortgages.items[1].amount=fsData.real_estate.woodstock.mortgage;
+  } else {
+    fsData.real_estate[key][field]=isNaN(p)?0:p;
+    // Keep liabilities in sync with RE mortgages
+    if(key==='primary'&&field==='mortgage') { if(fsData.liabilities.mortgages.items[0]) fsData.liabilities.mortgages.items[0].amount=isNaN(p)?0:p; }
+    if(key==='woodstock'&&field==='mortgage') { if(fsData.liabilities.mortgages.items[1]) fsData.liabilities.mortgages.items[1].amount=isNaN(p)?0:p; }
+  }
+  saveFsData(); refreshRetirementIfVisible(); renderFsSection(); if(document.getElementById('mort-container')) renderMortSection();
 };
 window.updateFsLib = (idx, field, val) => {
   if (field==="amount") {
@@ -689,7 +708,7 @@ window.updateFsLib = (idx, field, val) => {
     fsData.liabilities.mortgages.items[idx].amount=isNaN(p)?0:p;
     if(idx===0) fsData.real_estate.primary.mortgage=isNaN(p)?0:p;
     if(idx===1) fsData.real_estate.woodstock.mortgage=isNaN(p)?0:p;
-    saveFsData(); refreshRetirementIfVisible(); // no re-render while typing
+    saveFsData(); refreshRetirementIfVisible(); renderFsSection(); if(document.getElementById('mort-container')) renderMortSection();
   } else {
     fsData.liabilities.mortgages.items[idx].name=val;
     saveFsData();
@@ -810,26 +829,42 @@ function renderFsSection() {
   const reRows=Object.keys(fsData.real_estate).map(key=>{
     const re=fsData.real_estate[key], equity=re.value-re.mortgage;
     const reEditField = window.fsActiveEdit && window.fsActiveEdit.re===key ? window.fsActiveEdit.field : null;
-    if(fsEditMode) return `<div style="padding:6px 16px 6px 32px;margin-left:16px;border-left:2px solid rgba(42,110,30,0.2);">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <span style="font-size:12px;color:#555;">${re.label}</span>
-        <span style="font-size:12px;font-weight:700;color:#2a6e1e;">${fsFmt(equity)} equity</span>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:4px 10px;">
-          <span style="font-size:11px;color:#888;">Value $</span>
-          <input type="number" value="${re.value}" oninput="updateFsRe('${key}','value',this.value)" onfocus="this.select()"
-            style="border:none;font-size:14px;font-weight:700;font-family:inherit;color:#0d0d0b;width:min(100px,25vw);outline:none;padding:2px 0;">
+    if(fsEditMode) {
+      const isWood = key==='woodstock';
+      const valLabel   = isWood ? 'Full Property Value $' : 'Value $';
+      const mortLabel  = isWood ? 'Full Mortgage $' : 'Mortgage $';
+      const valField   = isWood ? 'fullValue' : 'value';
+      const mortField  = isWood ? 'fullMortgage' : 'mortgage';
+      const valCurrent = isWood ? (re.fullValue||re.value*3) : re.value;
+      const mortCurrent= isWood ? (re.fullMortgage||re.mortgage*3) : re.mortgage;
+      return `<div style="padding:6px 16px 6px 32px;margin-left:16px;border-left:2px solid rgba(42,110,30,0.2);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:12px;color:#555;">${re.label}${isWood?' (enter full amounts — 1/3 auto-calculated)':''}</span>
+          <span style="font-size:12px;font-weight:700;color:#2a6e1e;">${fsFmt(equity)} equity (your share)</span>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid rgba(160,32,32,0.2);border-radius:8px;padding:4px 10px;">
-          <span style="font-size:11px;color:#a02020;">Mortgage $</span>
-          <input type="number" value="${re.mortgage}" oninput="updateFsRe('${key}','mortgage',this.value)" onfocus="this.select()"
-            style="border:none;font-size:14px;font-weight:700;font-family:inherit;color:#a02020;width:min(100px,25vw);outline:none;padding:2px 0;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:4px 10px;">
+            <span style="font-size:11px;color:#888;">${valLabel}</span>
+            <input type="number" value="${valCurrent}" oninput="updateFsRe('${key}','${valField}',this.value)" onfocus="this.select()"
+              style="border:none;font-size:14px;font-weight:700;font-family:inherit;color:#0d0d0b;width:min(110px,28vw);outline:none;padding:2px 0;">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1px solid rgba(160,32,32,0.2);border-radius:8px;padding:4px 10px;">
+            <span style="font-size:11px;color:#a02020;">${mortLabel}</span>
+            <input type="number" value="${mortCurrent}" oninput="updateFsRe('${key}','${mortField}',this.value)" onfocus="this.select()"
+              style="border:none;font-size:14px;font-weight:700;font-family:inherit;color:#a02020;width:min(110px,28vw);outline:none;padding:2px 0;">
+          </div>
+          ${isWood?`<div style="font-size:10px;color:#2a6e1e;align-self:center;">Your 1/3: ${fsFmt(re.value)} value · ${fsFmt(re.mortgage)} mortgage</div>`:''}
         </div>
-      </div>
-    </div>`;
+      </div>`;
+    }
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 16px 5px 32px;margin-left:16px;border-left:2px solid rgba(42,110,30,0.12);" onmouseover="this.style.background='#f8fff8'" onmouseout="this.style.background='transparent'">
-      <div><span style="font-size:12px;color:#555;">${re.label}</span><span style="font-size:10px;color:#aaa;margin-left:8px;">${fsFmt(re.value)} − ${fsFmt(re.mortgage)}</span></div>
+      <div>
+        <div style="font-size:12px;color:#555;">${re.label}</div>
+        ${key==='woodstock'
+          ? `<div style="font-size:10px;color:#aaa;">Full: ${fsFmt(re.fullValue||re.value*3)} · Your 1/3: ${fsFmt(re.value)} − ${fsFmt(re.mortgage)}</div>`
+          : `<div style="font-size:10px;color:#aaa;">${fsFmt(re.value)} − ${fsFmt(re.mortgage)}</div>`
+        }
+      </div>
       <span style="font-size:12px;color:#2a6e1e;font-variant-numeric:tabular-nums;flex-shrink:0;margin-left:12px;">${fsFmt(equity)}</span></div>`;
   }).join('');
 
@@ -1005,7 +1040,7 @@ function renderRpSection() {
     {name:"TFSA (post-weddings)",growth:"5% w/ contributions",real:tfsa65/defl,key:null,contrib:null},
     {name:"RPP — Rani (after 25% tax)",growth:"5% / 2.5% real",real:rpp65AfterTax/defl,key:"rpp",contrib:contrib.rpp},
     {name:"BTC (hold)",growth:"5% / 2.5% real",real:btc65/defl,key:null,contrib:null},
-    {name:"India (sell at 65)",growth:"2.5% = inflation",real:india65/defl,key:null,contrib:null},
+    {name:"India (parents - may inherit)",growth:"2.5% = inflation",real:india65/defl,key:null,contrib:null},
     {name:"Woodstock 1/3",growth:"2.5% = inflation",real:wood65/defl,key:null,contrib:null},
   ];
   container.innerHTML=`
@@ -1499,11 +1534,11 @@ function renderActionSection() {
       tag: "Tax · Do This Month"
     },
     {
-      priority: "urgent",
+      priority: "low",
       icon: "📋",
-      title: "Verify beneficiary designations",
-      detail: "RRSP, TFSA, and life insurance policies should all name your spouse as beneficiary. Without this, assets go through your estate, triggering probate fees (~1.5% in Ontario = $21,500 on $1.44M). Takes 10 minutes to verify with each institution.",
-      tag: "Estate · Do This Month"
+      title: "Beneficiary designations confirmed",
+      detail: "Spouse is named as primary beneficiary on all accounts and policies. Assets will flow directly to surviving spouse bypassing probate. No action needed — review periodically to confirm nothing has changed after major life events.",
+      tag: "Estate · Confirmed ✓"
     },
     {
       priority: "high",
@@ -1565,7 +1600,7 @@ function renderActionSection() {
       priority: "medium",
       icon: "🇮🇳",
       title: "Clarify India property currency & title",
-      detail: "Is the $300K India property value in CAD or INR? If INR, it needs to be converted at current exchange rates for accurate net worth tracking. Also: how is the property titled? What happens to it if you both pass away? Indian inheritance law differs significantly from Canadian — get local legal advice.",
+      detail: "India property ($300K) is under your parents names - you do not currently own it. Until transferred to you via gift or inheritance, it should NOT be counted in your net worth. Consider setting its value to $0 in Financial Summary until ownership transfers. When it does, T1135 filing will be required (CRA foreign property >$100K CAD).",
       tag: "Estate · Medium Priority"
     },
     {
@@ -1825,14 +1860,11 @@ if (!window.mortSettings) {
     prim: { rate: 3.93, maturity: "2028-07", renewRate: 3.93 },
     wood: { rate: 5.00, maturity: "2030-01", renewRate: 5.00 }
   };
-  try {
-    const saved = localStorage.getItem('mortSettings');
-    if (saved) window.mortSettings = JSON.parse(saved);
-  } catch(e) {}
+  // Settings loaded from Firebase via loadSettings()
 }
 window.mortEditMode = false;
-window.saveMortSettings = () => {
-  try { localStorage.setItem('mortSettings', JSON.stringify(window.mortSettings)); } catch(e) {}
+window.saveMortSettings = async () => {
+  try { await db.collection("budget").doc("settings").set({mortSettings: window.mortSettings, btcQty: window.btcQtyHeld||0}, {merge:true}); } catch(e) {}
   renderMortSection();
 };
 window.toggleMortEdit = () => requireEditPassword(() => {
@@ -1928,32 +1960,34 @@ function renderMortSection() {
         </div>
       </div>
       ${window.mortEditMode ? `
-      <div style="background:#f0f7ff;border:1px solid rgba(26,82,128,0.2);border-radius:10px;padding:12px;">
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#1a5280;margin-bottom:10px;">⚙ Mortgage Settings</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+      <div style="background:#f0f7ff;border:1px solid rgba(26,82,128,0.15);border-radius:10px;padding:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#1a5280;">⚙ Mortgage Settings</div>
+          <div style="display:flex;gap:8px;">
+            <button id="mort-edit-${settingsKey}" onclick="(function(){document.getElementById(\'mort-fields-${settingsKey}\').style.display=\'grid\';document.getElementById(\'mort-vals-${settingsKey}\').style.display=\'none\';document.getElementById(\'mort-edit-${settingsKey}\').style.display=\'none\';document.getElementById(\'mort-save-${settingsKey}\').style.display=\'inline-block\';})()" style="font-family:inherit;font-size:12px;padding:4px 12px;border-radius:16px;cursor:pointer;border:1px solid rgba(26,82,128,0.3);background:rgba(26,82,128,0.08);color:#1a5280;">✎ Edit</button>
+            <button id="mort-save-${settingsKey}" onclick="(function(){document.getElementById(\'mort-fields-${settingsKey}\').style.display=\'none\';document.getElementById(\'mort-vals-${settingsKey}\').style.display=\'flex\';document.getElementById(\'mort-save-${settingsKey}\').style.display=\'none\';document.getElementById(\'mort-edit-${settingsKey}\').style.display=\'inline-block\';window.saveMortSettings();})()" style="display:none;font-family:inherit;font-size:12px;padding:4px 12px;border-radius:16px;cursor:pointer;border:none;background:#1a5280;color:#fff;">✓ Save</button>
+          </div>
+        </div>
+        <div id="mort-vals-${settingsKey}" style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:#555;">
+          <span>Rate: <strong style="color:#1a5280;">${ms.rate}%</strong></span>
+          <span>Maturity: <strong style="color:#1a5280;">${ms.maturity}</strong></span>
+          <span>Renewal: <strong style="color:#1a5280;">${ms.renewRate}%</strong></span>
+        </div>
+        <div id="mort-fields-${settingsKey}" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;">
           <div>
             <div style="font-size:10px;color:#888;margin-bottom:4px;">Current Rate %</div>
-            <input type="number" step="0.01" value="${ms.rate}"
-              oninput="window.mortSettings['${settingsKey}'].rate=parseFloat(this.value)||0;window.saveMortSettings();"
-              onfocus="this.select()"
-              style="width:100%;padding:6px 8px;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:14px;font-weight:700;font-family:inherit;color:#1a5280;background:#fff;outline:none;">
+            <input type="number" step="0.01" value="${ms.rate}" oninput="window.mortSettings[\'${settingsKey}\'].rate=parseFloat(this.value)||0;" onfocus="this.select()" style="width:100%;padding:6px 8px;border:1px solid rgba(26,82,128,0.25);border-radius:6px;font-size:13px;font-weight:600;font-family:inherit;color:#1a5280;background:#fff;outline:none;">
           </div>
           <div>
             <div style="font-size:10px;color:#888;margin-bottom:4px;">Maturity (YYYY-MM)</div>
-            <input type="text" placeholder="2028-07" value="${ms.maturity}"
-              oninput="window.mortSettings['${settingsKey}'].maturity=this.value;window.saveMortSettings();"
-              onfocus="this.select()"
-              style="width:100%;padding:6px 8px;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:14px;font-weight:700;font-family:inherit;color:#1a5280;background:#fff;outline:none;">
+            <input type="text" placeholder="2028-07" value="${ms.maturity}" oninput="window.mortSettings[\'${settingsKey}\'].maturity=this.value;" onfocus="this.select()" style="width:100%;padding:6px 8px;border:1px solid rgba(26,82,128,0.25);border-radius:6px;font-size:13px;font-weight:600;font-family:inherit;color:#1a5280;background:#fff;outline:none;">
           </div>
           <div>
-            <div style="font-size:10px;color:#888;margin-bottom:4px;">Future Rate %</div>
-            <input type="number" step="0.01" value="${ms.renewRate}"
-              oninput="window.mortSettings['${settingsKey}'].renewRate=parseFloat(this.value)||0;window.saveMortSettings();"
-              onfocus="this.select()"
-              style="width:100%;padding:6px 8px;border:1px solid rgba(26,82,128,0.3);border-radius:6px;font-size:14px;font-weight:700;font-family:inherit;color:#1a5280;background:#fff;outline:none;">
+            <div style="font-size:10px;color:#888;margin-bottom:4px;">Renewal Rate %</div>
+            <input type="number" step="0.01" value="${ms.renewRate}" oninput="window.mortSettings[\'${settingsKey}\'].renewRate=parseFloat(this.value)||0;" onfocus="this.select()" style="width:100%;padding:6px 8px;border:1px solid rgba(26,82,128,0.25);border-radius:6px;font-size:13px;font-weight:600;font-family:inherit;color:#1a5280;background:#fff;outline:none;">
           </div>
         </div>
-        <div style="font-size:10px;color:#aaa;margin-top:8px;">Update rate & maturity each renewal · recalculates instantly</div>
+        <div style="font-size:10px;color:#aaa;margin-top:8px;">Update after each renewal · recalculates instantly</div>
       </div>` : `
       <div style="background:#fafaf8;border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <div style="display:flex;gap:16px;font-size:12px;flex-wrap:wrap;">
@@ -1978,8 +2012,8 @@ function renderMortSection() {
       </div>
     </div>
     <div style="padding:16px;">
-      ${mortCard("🏠 Primary Home — Ajax/Whitby", primVal, primMort, primPayment, prim, 'prim')}
-      ${mortCard("🏘 Woodstock Rental (1/3 share)", woodVal, woodMort, woodPayment, wood, 'wood')}
+      ${mortCard("🏠 Primary Home (Ajax)", primVal, primMort, primPayment, prim, 'prim')}
+      ${mortCard("🏘 Woodstock Rental (your 1/3 share)", woodVal, woodMort, woodPayment, wood, 'wood')}
       <div style="padding:12px;background:#fafaf8;border-radius:8px;border:1px solid rgba(0,0,0,0.06);font-size:11px;color:#555;line-height:1.7;">
         💡 <strong>Combined equity: ${fmt((primVal-primMort)+(woodVal-woodMort))}</strong><br>
         Primary home paid off ~${payoffStr(prim.payoffYear)} · Total interest remaining ~${fmt(prim.totalInterest)}<br>
@@ -1991,12 +2025,23 @@ function renderMortSection() {
 // ============================================================
 // BTC TRACKER
 // ============================================================
-// BTC quantity stored separately
-if (!window.btcQtyHeld) window.btcQtyHeld = parseFloat(localStorage.getItem('btcQty')||'0');
-window.saveBtcQty = (qty) => {
+// BTC quantity stored in Firebase (cross-device)
+if (!window.btcQtyHeld) window.btcQtyHeld = 0;
+window.saveBtcQty = async (qty) => {
   window.btcQtyHeld = qty;
-  localStorage.setItem('btcQty', qty);
+  try { await db.collection("budget").doc("settings").set({btcQty: qty, mortSettings: window.mortSettings||{}}, {merge:true}); } catch(e) {}
 };
+// Load BTC qty from Firebase on startup
+async function loadSettings() {
+  try {
+    const snap = await db.collection("budget").doc("settings").get();
+    if (snap.exists) {
+      const d = snap.data();
+      if (d.btcQty !== undefined) window.btcQtyHeld = parseFloat(d.btcQty)||0;
+      if (d.mortSettings) window.mortSettings = d.mortSettings;
+    }
+  } catch(e) {}
+}
 
 async function renderBtcSection() {
   const container = document.getElementById("btc-container");
@@ -2032,10 +2077,38 @@ async function renderBtcSection() {
       <div style="padding:16px;">
 
         <div style="background:#faf5ff;border:1px solid rgba(122,48,128,0.25);border-radius:12px;padding:16px;margin-bottom:20px;">
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#7a3080;margin-bottom:10px;">Your BTC Holdings</div>
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1.5px solid rgba(122,48,128,0.3);border-radius:10px;padding:8px 14px;flex:1;min-width:140px;">
-              <span style="font-size:13px;color:#7a3080;font-weight:600;">₿</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#7a3080;">Your BTC Holdings</div>
+            <div style="display:flex;gap:8px;">
+              <button id="btc-edit-btn" onclick="(function(){
+                document.getElementById('btc-display-row').style.display='none';
+                document.getElementById('btc-input-row').style.display='flex';
+                document.getElementById('btc-edit-btn').style.display='none';
+                document.getElementById('btc-save-btn').style.display='inline-block';
+                document.getElementById('btc-qty-input').focus();
+              })()" style="font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;border:1px solid rgba(122,48,128,0.3);background:rgba(122,48,128,0.08);color:#7a3080;">✎ Edit</button>
+              <button id="btc-save-btn" onclick="(function(){
+                document.getElementById('btc-display-row').style.display='flex';
+                document.getElementById('btc-input-row').style.display='none';
+                document.getElementById('btc-save-btn').style.display='none';
+                document.getElementById('btc-edit-btn').style.display='inline-block';
+              })()" style="display:none;font-family:inherit;font-size:12px;padding:5px 14px;border-radius:20px;cursor:pointer;border:none;background:#7a3080;color:#fff;">✓ Save</button>
+            </div>
+          </div>
+          <div id="btc-display-row" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+            <div style="background:#fff;border:1.5px solid rgba(122,48,128,0.15);border-radius:10px;padding:10px 14px;flex:1;min-width:120px;">
+              <div style="font-size:10px;color:#aaa;margin-bottom:3px;">BTC Amount</div>
+              <div id="btc-qty-display" style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:#7a3080;">${btcQty>0?(btcQty.toFixed(4)+' BTC'):'Tap ✎ Edit to enter'}</div>
+            </div>
+            <div style="font-size:13px;color:#aaa;flex-shrink:0;">→</div>
+            <div style="background:#fff;border:1.5px solid rgba(122,48,128,0.15);border-radius:10px;padding:10px 14px;flex:1;min-width:120px;">
+              <div style="font-size:10px;color:#aaa;margin-bottom:3px;">Live CAD Value</div>
+              <div id="btc-cad-live" style="font-family:'DM Serif Display',serif;font-size:1.1rem;color:${btcQty>0?'#7a3080':'#aaa'};">${btcQty>0?fmt(cadValue)+' CAD':'—'}</div>
+            </div>
+          </div>
+          <div id="btc-input-row" style="display:none;align-items:center;gap:8px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1.5px solid rgba(122,48,128,0.4);border-radius:10px;padding:10px 14px;flex:1;">
+              <span style="font-size:14px;color:#7a3080;font-weight:700;">₿</span>
               <input id="btc-qty-input" type="number" inputmode="decimal" step="0.0001"
                 value="${btcQty||''}" placeholder="e.g. 0.25"
                 onfocus="this.select()"
@@ -2044,27 +2117,18 @@ async function renderBtcSection() {
                   window.saveBtcQty(q);
                   const p=${price};
                   const cad=Math.round(q*p);
-                  document.getElementById('btc-cad-live').textContent=q>0?('$'+cad.toLocaleString('en-CA')+' CAD'):'Enter BTC amount above';
+                  document.getElementById('btc-qty-display').textContent=q>0?(q.toFixed(4)+' BTC'):'Tap ✒ Edit to enter';
+                  document.getElementById('btc-cad-live').textContent=q>0?('$'+cad.toLocaleString('en-CA')+' CAD'):'—';
                   document.getElementById('btc-cad-live').style.color=q>0?'#7a3080':'#aaa';
-                  // update scenario cards
-                  ${scenarios.map((s,i)=>`document.getElementById('btc-sc-${i}').textContent='$'+(Math.round(q*${s.price})).toLocaleString('en-CA');`).join('')}
-                  // Auto-update Financial Summary BTC field
-                  const btcItem = fsData.investments.retirement.items.find(i=>i.name.toUpperCase().includes('BTC'));
+                  ${scenarios.map((s,i)=>`document.getElementById('btc-sc-${i}').textContent=q>0?('$'+(Math.round(q*${s.price})).toLocaleString('en-CA')):'—';`).join('')}
+                  const btcItem=fsData.investments.retirement.items.find(i=>i.name.toUpperCase().includes('BTC'));
                   if(btcItem){btcItem.amount=cad;saveFsData();}
                 })(this.value)"
-                style="flex:1;min-width:0;font-size:16px;font-weight:700;font-family:inherit;color:#7a3080;background:transparent;border:none;outline:none;padding:2px 0;width:100%;">
-              <span style="font-size:12px;color:#aaa;white-space:nowrap;">BTC</span>
-            </div>
-            <div style="font-size:13px;color:#aaa;flex-shrink:0;">→</div>
-            <div style="background:#fff;border:1.5px solid rgba(122,48,128,0.15);border-radius:10px;padding:8px 14px;flex:1;min-width:140px;">
-              <div id="btc-cad-live" style="font-family:'DM Serif Display',serif;font-size:1.2rem;color:${btcQty>0?'#7a3080':'#aaa'};">
-                ${btcQty>0?fmt(cadValue)+' CAD':'Enter BTC amount above'}
-              </div>
+                style="flex:1;font-size:16px;font-weight:700;font-family:inherit;color:#7a3080;background:transparent;border:none;outline:none;padding:2px 0;">
+              <span style="font-size:12px;color:#aaa;">BTC</span>
             </div>
           </div>
-          <div style="font-size:11px;color:#888;margin-top:10px;">
-            Value auto-updates in Financial Summary · saved locally on this device
-          </div>
+          <div style="font-size:11px;color:#888;">Auto-updates Financial Summary · saved locally on this device</div>
         </div>
 
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px;">
