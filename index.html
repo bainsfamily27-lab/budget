@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bains Family Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<style>
+/* ─── DESIGN TOKENS ─────────────────────────────────── */
+:root {
+  --bg:          #f5f6f7;
+  --surface:     #ffffff;
+  --surface2:    #f0f1f3;
+  --border:      rgba(0,0,0,0.08);
+  --border2:     rgba(0,0,0,0.16);
+  --text:        #0a0b0d;
+  --muted:       #5a5d66;
+  --accent:      #2563eb;
+  --accent-dim:  rgba(37,99,235,0.08);
+  --green:       #16a34a;
+  --green-dim:   rgba(22,163,74,0.08);
+  --amber:       #d97706;
+  --amber-dim:   rgba(217,119,6,0.08);
+  --red:         #dc2626;
+  --red-dim:     rgba(220,38,38,0.08);
+  --font-head:   'Plus Jakarta Sans', sans-serif;
+  --font-body:   'Inter', sans-serif;
+  --radius:      10px;
+  --radius-sm:   6px;
+  --shadow:      0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+}
+
+/* ─── RESET ──────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font-body);
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ─── KEYFRAMES ──────────────────────────────────────── */
+@keyframes spin    { to { transform: rotate(360deg); } }
+@keyframes fadeUp  { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
+@keyframes slideUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
+
+/* ─── SITE HEADER ────────────────────────────────────── */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 1.5rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  box-shadow: var(--shadow);
+}
+.site-header-left  { display: flex; align-items: center; gap: 10px; }
+.site-header-right { display: flex; align-items: center; gap: 12px; }
+.site-title {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--accent);
+  letter-spacing: -0.01em;
+}
+.site-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid rgba(37,99,235,0.2);
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+}
+#header-nw {
+  font-family: var(--font-head);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--green);
+}
+
+/* ─── MAIN WRAPPER ───────────────────────────────────── */
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+/* ─── SECTION LABELS ─────────────────────────────────── */
+.sec-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sec-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border2);
+}
+
+/* ─── CARDS ──────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: fadeUp 0.3s ease both;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.card-header-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* ─── BADGES ─────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+}
+.badge-green  { background: var(--green-dim);  color: #15803d; border: 1px solid rgba(22,163,74,0.25); }
+.badge-blue   { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(37,99,235,0.2); }
+.badge-amber  { background: var(--amber-dim);  color: #b45309; border: 1px solid rgba(217,119,6,0.25); }
+.badge-red    { background: var(--red-dim);    color: #b91c1c; border: 1px solid rgba(220,38,38,0.25); }
+.badge-muted  { background: rgba(0,0,0,0.05);  color: var(--muted); border: 1px solid var(--border2); }
+
+/* ─── BUTTONS ────────────────────────────────────────── */
+.btn {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border2);
+  background: var(--surface2);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:hover  { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+.btn-success {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.btn-danger { color: var(--red); border-color: var(--red-dim); background: var(--red-dim); }
+
+/* ─── INPUTS ─────────────────────────────────────────── */
+input[type="text"],
+input[type="number"],
+input[type="password"] {
+  font-family: var(--font-body);
+  font-size: 16px; /* prevents iOS zoom */
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 8px 12px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s, background 0.15s;
+  -webkit-appearance: none;
+}
+input:focus {
+  border-color: rgba(37,99,235,0.5);
+  background: var(--surface);
+}
+input[type="number"] { -moz-appearance: textfield; }
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ─── SPINNER ────────────────────────────────────────── */
+.spinner {
+  width: 24px; height: 24px;
+  border: 3px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+.spinner-sm {
+  width: 14px; height: 14px;
+  border-width: 2px;
+}
+
+/* ─── PASSWORD MODAL ─────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10,11,13,0.6);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.2s ease;
+}
+.modal-box {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 32px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  animation: fadeUp 0.25s ease;
+}
+.modal-logo {
+  font-family: var(--font-head);
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.modal-sub {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 28px;
+}
+.modal-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+.modal-error {
+  font-size: 0.75rem;
+  color: var(--red);
+  margin-top: 8px;
+  min-height: 18px;
+}
+.modal-btn {
+  width: 100%;
+  padding: 12px;
+  margin-top: 16px;
+  font-family: var(--font-head);
+  font-size: 0.9rem;
+  font-weight: 700;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+  letter-spacing: 0.01em;
+}
+.modal-btn:hover   { background: #1d4ed8; }
+.modal-btn:active  { background: #1e40af; }
+.modal-btn.loading { opacity: 0.7; pointer-events: none; }
+
+/* ─── SECTION CONTAINER ──────────────────────────────── */
+.section-wrap {
+  margin-bottom: 28px;
+  animation: fadeUp 0.3s ease both;
+}
+
+/* ─── STAT CARDS STRIP ───────────────────────────────── */
+.stat-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin-bottom: 24px;
+}
+.stat-strip::-webkit-scrollbar { display: none; }
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  min-width: 130px;
+  flex-shrink: 0;
+  box-shadow: var(--shadow);
+}
+.stat-card-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 5px;
+  white-space: nowrap;
+}
+.stat-card-val {
+  font-family: var(--font-head);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+.stat-card-sub {
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* ─── LOADING STATE ──────────────────────────────────── */
+#loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 14px;
+}
+#loading-screen p {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ─── RESPONSIVE ─────────────────────────────────────── */
+@media (max-width: 900px) {
+  main { padding: 16px 16px 48px; }
+}
+@media (max-width: 600px) {
+  main { padding: 12px 12px 40px; }
+  .site-header { padding: 0 1rem; }
+  .site-title { font-size: 0.9rem; }
+  .modal-box { padding: 24px 20px; }
+}
+@media (max-width: 400px) {
+  main { padding: 10px 10px 32px; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ── SITE HEADER ──────────────────────────────────── -->
+<header class="site-header">
+  <div class="site-header-left">
+    <span class="site-title">Bains Family Dashboard</span>
+    <span class="site-badge">2026</span>
+  </div>
+  <div class="site-header-right">
+    <span id="header-nw"></span>
+  </div>
+</header>
+
+<!-- ── MAIN CONTENT ─────────────────────────────────── -->
+<main id="main-content">
+  <div id="loading-screen">
+    <div class="spinner"></div>
+    <p>Loading dashboard…</p>
+  </div>
+</main>
+
+<!-- ── PASSWORD MODAL ───────────────────────────────── -->
+<div id="pwd-modal" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-logo">Bains Family Dashboard</div>
+    <div class="modal-sub">Enter your password to access the dashboard</div>
+    <div class="modal-label">Password</div>
+    <input
+      type="password"
+      id="pwd-input"
+      placeholder="••••••••"
+      autocomplete="current-password"
+      onkeydown="if(event.key==='Enter') submitPassword()"
+    />
+    <div class="modal-error" id="pwd-error"></div>
+    <button class="modal-btn" id="pwd-btn" onclick="submitPassword()">Unlock Dashboard</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════════════
+   1. FIREBASE INIT
+═══════════════════════════════════════════════════════ */
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyAyP4XFRDcP7Uutac_bYq5oo97CU4lrPCs",
+  authDomain:        "house-budget-67248.firebaseapp.com",
+  projectId:         "house-budget-67248",
+  storageBucket:     "house-budget-67248.firebasestorage.app",
+  messagingSenderId: "860923969797",
+  appId:             "1:860923969797:web:8bb95e65eccfe492ab776c"
+};
+
+let db;
+try {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  db = firebase.firestore();
+  console.log('✅ Firebase connected');
+} catch (e) {
+  console.error('Firebase init failed:', e);
+  showFatalError('Failed to connect to database. ' + e.message);
+}
+
+/* ═══════════════════════════════════════════════════════
+   2. APP PASSWORD
+═══════════════════════════════════════════════════════ */
+const APP_PASSWORD    = 'ajax123';
+let   appUnlocked     = false;
+let   editUnlocked    = false; // separate flag for edit actions
+
+function showPasswordModal() {
+  const modal = document.getElementById('pwd-modal');
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('pwd-input').focus(), 100);
+}
+
+function hidePasswordModal() {
+  document.getElementById('pwd-modal').style.display = 'none';
+}
+
+function submitPassword() {
+  const val = document.getElementById('pwd-input').value;
+  const btn = document.getElementById('pwd-btn');
+  const err = document.getElementById('pwd-error');
+
+  if (val === APP_PASSWORD) {
+    err.textContent = '';
+    btn.textContent = 'Unlocking…';
+    btn.classList.add('loading');
+    appUnlocked  = true;
+    editUnlocked = true;
+    hidePasswordModal();
+    onUnlocked();
+  } else {
+    err.textContent = 'Incorrect password — try again';
+    document.getElementById('pwd-input').value = '';
+    document.getElementById('pwd-input').focus();
+  }
+}
+
+// For inline edit actions that need password
+function requirePassword(cb) {
+  if (editUnlocked) { cb(); return; }
+  const pwd = prompt('Enter password to edit:');
+  if (pwd === APP_PASSWORD) { editUnlocked = true; cb(); }
+  else if (pwd !== null) alert('Incorrect password');
+}
+
+/* ═══════════════════════════════════════════════════════
+   3. GLOBAL UTILITIES
+═══════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+
+// Money formatters
+const fmtCAD  = n => '$' + Math.round(n).toLocaleString('en-CA');
+const fmtCAD2 = n => '$' + Number(n).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtCAD3 = n => '$' + Number(n).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 3 });
+
+// Sanitize for innerHTML
+const sanitize = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+// Debounce utility
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+// Show/hide spinner helper
+function setLoading(containerId, msg = 'Loading…') {
+  const el = $(containerId);
+  if (!el) return;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;padding:32px;gap:12px;">
+      <div class="spinner spinner-sm"></div>
+      <span style="font-size:13px;color:var(--muted);">${msg}</span>
+    </div>`;
+}
+
+// Fatal error display
+function showFatalError(msg) {
+  const main = $('main-content');
+  if (main) main.innerHTML = `
+    <div style="padding:48px;text-align:center;">
+      <div style="font-size:2rem;margin-bottom:12px;">⚠️</div>
+      <div style="font-family:var(--font-head);font-weight:700;font-size:1.1rem;color:var(--red);margin-bottom:8px;">Dashboard Error</div>
+      <div style="font-size:13px;color:var(--muted);max-width:400px;margin:0 auto;">${msg}</div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════
+   4. FIREBASE HELPERS — safe read/write with timeout
+═══════════════════════════════════════════════════════ */
+const FB_TIMEOUT = 6000; // 6 seconds max per Firebase call
+
+function fbGet(docPath) {
+  const [col, doc] = docPath.split('/');
+  const fetch = db.collection(col).doc(doc).get();
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Firebase timeout')), FB_TIMEOUT)
+  );
+  return Promise.race([fetch, timeout]);
+}
+
+function fbSet(docPath, data, merge = true) {
+  const [col, doc] = docPath.split('/');
+  return db.collection(col).doc(doc).set(data, { merge });
+}
+
+// Save indicator helper
+function showSaved(elId = 'save-indicator') {
+  const el = $(elId);
+  if (!el) return;
+  el.style.opacity = '1';
+  setTimeout(() => { el.style.opacity = '0'; }, 2200);
+}
+
+/* ═══════════════════════════════════════════════════════
+   5. APP STATE  — single source of truth
+   Populated by loadAll(), then sections read from here.
+═══════════════════════════════════════════════════════ */
+const STATE = {
+  budget:     null,   // loaded from budget/main
+  fs:         null,   // loaded from budget/financialsummary
+  rp:         null,   // loaded from budget/retirementplan
+  wf:         null,   // loaded from budget/weddingfund
+  settings:   null,   // loaded from budget/settings (btcQty, mortSettings, ptAccounts)
+  loaded:     false,
+};
+
+/* ═══════════════════════════════════════════════════════
+   6. LOAD ALL DATA  — parallel with per-call timeouts
+═══════════════════════════════════════════════════════ */
+async function loadAll() {
+  const safeGet = async (path, fallback) => {
+    try {
+      const snap = await fbGet(path);
+      return snap.exists ? snap.data() : fallback;
+    } catch (e) {
+      console.warn(`loadAll: ${path} failed — using fallback`, e.message);
+      return fallback;
+    }
+  };
+
+  const [budget, fs, rp, wf, settings] = await Promise.all([
+    safeGet('budget/main',              null),
+    safeGet('budget/financialsummary',  null),
+    safeGet('budget/retirementplan',    null),
+    safeGet('budget/weddingfund',       null),
+    safeGet('budget/settings',          null),
+  ]);
+
+  STATE.budget   = budget;
+  STATE.fs       = fs;
+  STATE.rp       = rp;
+  STATE.wf       = wf;
+  STATE.settings = settings;
+  STATE.loaded   = true;
+
+  console.log('✅ All data loaded', {
+    budget: !!budget,
+    fs: !!fs,
+    rp: !!rp,
+    wf: !!wf,
+    settings: !!settings
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   7. DASHBOARD SHELL — rendered after unlock + load
+═══════════════════════════════════════════════════════ */
+function renderShell() {
+  const main = $('main-content');
+  main.innerHTML = `
+    <!-- Portfolio snapshot strip will go here -->
+    <div id="strip-section" class="section-wrap"></div>
+
+    <!-- Sections injected here one by one -->
+    <div id="sections-root"></div>
+  `;
+}
+
+/* ═══════════════════════════════════════════════════════
+   8. AFTER UNLOCK — load data then render
+═══════════════════════════════════════════════════════ */
+async function onUnlocked() {
+  const main = $('main-content');
+
+  // Show loading while Firebase loads
+  main.innerHTML = `
+    <div id="loading-screen">
+      <div class="spinner"></div>
+      <p>Loading your data…</p>
+    </div>`;
+
+  await loadAll();
+  renderShell();
+  console.log('✅ Dashboard shell ready — sections can now be added');
+}
+
+/* ═══════════════════════════════════════════════════════
+   9. BOOT
+═══════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  window.scrollTo(0, 0);
+  // Always show password modal on load (no session persistence)
+  showPasswordModal();
+});
+</script>
+
+</body>
+</html>
