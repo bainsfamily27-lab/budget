@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bains Family Financials</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<style>
+/* ── TOKENS ──────────────────────────────────────────── */
+:root {
+  --bg:         #f5f6f7;
+  --surface:    #ffffff;
+  --surface2:   #f0f1f3;
+  --border:     rgba(0,0,0,0.08);
+  --border2:    rgba(0,0,0,0.16);
+  --text:       #0a0b0d;
+  --muted:      #5a5d66;
+  --accent:     #2563eb;
+  --accent-dim: rgba(37,99,235,0.08);
+  --green:      #16a34a;
+  --green-dim:  rgba(22,163,74,0.08);
+  --amber:      #d97706;
+  --red:        #dc2626;
+  --red-dim:    rgba(220,38,38,0.08);
+  --fh:         'Plus Jakarta Sans', sans-serif;
+  --fb:         'Inter', sans-serif;
+  --r:          10px;
+  --r-sm:       6px;
+  --sh:         0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { scroll-behavior:smooth; }
+body { font-family:var(--fb); font-size:14px; background:var(--bg); color:var(--text); min-height:100vh; -webkit-text-size-adjust:100%; }
+@keyframes spin   { to { transform:rotate(360deg); } }
+@keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+
+/* ── HEADER ──────────────────────────────────────────── */
+.site-header {
+  position:sticky; top:0; z-index:100;
+  background:var(--surface); border-bottom:1px solid var(--border);
+  padding:0 1.5rem; height:56px;
+  display:flex; align-items:center; justify-content:space-between;
+  box-shadow:var(--sh);
+}
+.site-title { font-family:var(--fh); font-weight:700; font-size:1rem; color:var(--accent); letter-spacing:-0.01em; }
+.site-badge {
+  font-size:0.65rem; font-weight:600;
+  background:var(--accent-dim); color:var(--accent);
+  border:1px solid rgba(37,99,235,0.2); padding:2px 8px; border-radius:20px;
+}
+
+/* ── LAYOUT ──────────────────────────────────────────── */
+main { max-width:1200px; margin:0 auto; padding:24px 20px 60px; }
+.section-wrap { margin-bottom:28px; }
+.sec-label {
+  font-size:0.68rem; font-weight:700; color:var(--muted);
+  text-transform:uppercase; letter-spacing:0.1em;
+  margin-bottom:10px; display:flex; align-items:center; gap:8px;
+}
+.sec-label::after { content:''; flex:1; height:1px; background:var(--border2); }
+
+/* ── CARD ────────────────────────────────────────────── */
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); box-shadow:var(--sh); overflow:hidden; animation:fadeUp 0.3s ease both; }
+
+/* ── BUTTONS ─────────────────────────────────────────── */
+.btn {
+  font-family:var(--fb); font-size:0.75rem; font-weight:600;
+  padding:5px 14px; border-radius:20px;
+  border:1px solid var(--border2); background:var(--surface2); color:var(--muted);
+  cursor:pointer; transition:all 0.15s; white-space:nowrap;
+  -webkit-tap-highlight-color:transparent;
+}
+.btn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+.btn-primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+.btn-primary:hover { background:#1d4ed8; }
+.btn-success { background:var(--green); border-color:var(--green); color:#fff; }
+.btn-danger  { color:var(--red); border-color:rgba(220,38,38,0.3); background:var(--red-dim); }
+
+/* ── INPUTS ──────────────────────────────────────────── */
+input[type=text], input[type=number], input[type=password] {
+  font-family:var(--fb); font-size:16px;
+  background:var(--surface2); border:1px solid var(--border2);
+  border-radius:var(--r-sm); color:var(--text);
+  padding:8px 12px; outline:none; width:100%;
+  transition:border-color 0.15s, background 0.15s;
+  -webkit-appearance:none;
+}
+input:focus { border-color:rgba(37,99,235,0.5); background:var(--surface); }
+input[type=number]                              { -moz-appearance:textfield; }
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button   { -webkit-appearance:none; margin:0; }
+
+/* ── SPINNER ─────────────────────────────────────────── */
+.spin { width:22px; height:22px; border:3px solid var(--border2); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; }
+.spin-sm { width:13px; height:13px; border-width:2px; }
+
+/* ── PASSWORD MODAL ──────────────────────────────────── */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(10,11,13,0.55);
+  backdrop-filter:blur(3px); z-index:999;
+  display:flex; align-items:center; justify-content:center;
+  padding:16px; animation:fadeIn 0.2s ease;
+}
+.modal-box {
+  background:var(--surface); border-radius:14px; padding:28px;
+  width:100%; max-width:340px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.18); animation:fadeUp 0.2s ease;
+}
+.modal-title { font-family:var(--fh); font-weight:700; font-size:1rem; color:var(--text); margin-bottom:4px; }
+.modal-sub   { font-size:0.75rem; color:var(--muted); margin-bottom:20px; }
+.modal-lbl   { font-size:0.68rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px; }
+.modal-err   { font-size:0.72rem; color:var(--red); margin-top:6px; min-height:16px; }
+.modal-acts  { display:flex; gap:8px; margin-top:16px; }
+.modal-btn   { flex:1; padding:10px; font-family:var(--fh); font-size:0.85rem; font-weight:700; border:none; border-radius:var(--r-sm); cursor:pointer; transition:background 0.15s; }
+.modal-ok    { background:var(--accent); color:#fff; }
+.modal-ok:hover { background:#1d4ed8; }
+.modal-cancel { background:var(--surface2); color:var(--muted); border:1px solid var(--border2); flex:0 0 auto; padding:10px 16px; }
+
+/* ── PORTFOLIO SPECIFIC ──────────────────────────────── */
+.pt-col-hdr {
+  display:grid; gap:8px; padding:7px 20px;
+  background:var(--surface2); border-bottom:1px solid var(--border);
+}
+.pt-col-hdr span { font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.09em; color:var(--muted); }
+.pt-fin-grid  { grid-template-columns:1.2fr 1.6fr 0.9fr 0.9fr 1fr; }
+.pt-re-grid   { grid-template-columns:1.3fr 1fr 1fr 1fr; }
+.pt-row-fin {
+  display:grid; grid-template-columns:1.2fr 1.6fr 0.9fr 0.9fr 1fr;
+  gap:8px; align-items:center; padding:11px 20px;
+  border-bottom:0.5px solid var(--border); transition:background 0.1s;
+}
+.pt-row-fin:hover { background:var(--surface2); }
+.pt-row-re {
+  display:grid; grid-template-columns:1.3fr 1fr 1fr 1fr;
+  gap:8px; align-items:center; padding:14px 20px;
+  border-bottom:0.5px solid var(--border); transition:background 0.1s;
+}
+.pt-row-re:hover { background:var(--surface2); }
+.pt-val { font-family:var(--fh); font-weight:700; font-size:13px; }
+.pt-sub { font-size:10px; color:var(--muted); margin-top:2px; }
+.pt-tag-live   { font-size:9px; font-weight:700; color:var(--green); background:var(--green-dim); border:1px solid rgba(22,163,74,0.25); padding:1px 6px; border-radius:10px; display:inline-block; margin-left:4px; }
+.pt-tag-manual { font-size:9px; font-weight:700; color:var(--amber); background:rgba(217,119,6,0.08); border:1px solid rgba(217,119,6,0.25); padding:1px 6px; border-radius:10px; display:inline-block; margin-left:4px; }
+.pt-subtotal {
+  margin:2px 20px 10px; padding:7px 12px;
+  background:var(--surface2); border-radius:var(--r-sm);
+  display:flex; justify-content:space-between; align-items:center;
+}
+.pt-group-hdr {
+  padding:9px 20px; border-bottom:1px solid var(--border);
+  display:flex; justify-content:space-between; align-items:center;
+}
+.pt-footer {
+  padding:14px 20px; background:var(--green-dim);
+  border-top:1px solid rgba(22,163,74,0.15);
+  display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;
+}
+
+/* ── PRIMARY RESIDENCE ──────────────────────────────── */
+.pr-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 16px;
+}
+.pr-stat {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px 14px;
+}
+.pr-stat-label { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 5px; }
+.pr-stat-val   { font-family: var(--fh); font-size: 1.1rem; font-weight: 700; color: var(--text); line-height: 1; }
+.pr-stat-sub   { font-size: 0.65rem; color: var(--muted); margin-top: 3px; }
+@media (max-width: 640px) {
+  .pr-stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 400px) {
+  .pr-stat-grid { grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; }
+  .pr-stat-val  { font-size: 1rem; }
+}
+
+/* ── LOADING ─────────────────────────────────────────── */
+.loading-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; gap:14px; }
+.loading-screen p { font-size:13px; color:var(--muted); }
+
+/* ── RESPONSIVE ──────────────────────────────────────── */
+@media (max-width:900px) { main { padding:16px 16px 48px; } }
+@media (max-width:640px) {
+  main { padding:12px 12px 40px; }
+  .site-header { padding:0 1rem; }
+  .pt-row-fin  { grid-template-columns:1fr 1.4fr 0.8fr 1fr; }
+  .pt-col-hdr.pt-fin-grid { grid-template-columns:1fr 1.4fr 0.8fr 1fr; }
+  .pt-row-fin .pt-hide-sm  { display:none; }
+  .pt-col-hdr .pt-hide-sm  { display:none; }
+  .pt-row-re   { grid-template-columns:1.2fr 1fr 1fr; }
+  .pt-col-hdr.pt-re-grid { grid-template-columns:1.2fr 1fr 1fr; }
+  .pt-row-re .pt-hide-sm { display:none; }
+}
+@media (max-width:420px) {
+  main { padding:10px 10px 32px; }
+  .pt-row-fin { grid-template-columns:1fr 1fr 1fr; }
+  .pt-col-hdr.pt-fin-grid { grid-template-columns:1fr 1fr 1fr; }
+  .pt-row-fin .pt-hide-xs { display:none; }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span class="site-title">Bains Family Financials</span>
+    <span class="site-badge">2026</span>
+  </div>
+  
+</header>
+
+<main id="app">
+  <div class="loading-screen">
+    <div class="spin"></div>
+    <p>Loading…</p>
+  </div>
+</main>
+
+<!-- Edit password modal -->
+<div id="pwd-modal" class="modal-overlay" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-title">Edit Mode</div>
+    <div class="modal-sub">Enter password to make changes</div>
+    <div class="modal-lbl">Password</div>
+    <input type="password" id="pwd-inp" placeholder="••••••••" onkeydown="if(event.key==='Enter')pwdSubmit()">
+    <div class="modal-err" id="pwd-err"></div>
+    <div class="modal-acts">
+      <button class="modal-btn modal-cancel" onclick="pwdClose()">Cancel</button>
+      <button class="modal-btn modal-ok" onclick="pwdSubmit()">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ══════════════════════════════════════════════════════
+   FIREBASE
+══════════════════════════════════════════════════════ */
+const FB_CFG = {
+  apiKey:            'AIzaSyAyP4XFRDcP7Uutac_bYq5oo97CU4lrPCs',
+  authDomain:        'house-budget-67248.firebaseapp.com',
+  projectId:         'house-budget-67248',
+  storageBucket:     'house-budget-67248.firebasestorage.app',
+  messagingSenderId: '860923969797',
+  appId:             '1:860923969797:web:8bb95e65eccfe492ab776c'
+};
+let db;
+try { firebase.initializeApp(FB_CFG); db = firebase.firestore(); }
+catch(e) { console.error('Firebase failed:', e); }
+
+const fbGet = path => {
+  const [c,d] = path.split('/');
+  return Promise.race([
+    db.collection(c).doc(d).get(),
+    new Promise((_,r) => setTimeout(() => r(new Error('timeout')), 6000))
+  ]);
+};
+const fbSet = (path, data) => {
+  const [c,d] = path.split('/');
+  return db.collection(c).doc(d).set(data, {merge:true});
+};
+
+/* ══════════════════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const fmtC  = n => '$' + Math.round(n).toLocaleString('en-CA');
+const fmtC2 = n => '$' + Number(n).toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2});
+const san   = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function saved(id) {
+  const el=$(id); if(!el) return;
+  el.style.opacity='1'; setTimeout(()=>el.style.opacity='0',2200);
+}
+
+/* ══════════════════════════════════════════════════════
+   PASSWORD
+══════════════════════════════════════════════════════ */
+const PWD = 'ajax123';
+let pwdUnlocked = false;
+let pwdCb = null;
+
+function requirePwd(cb) {
+  if (pwdUnlocked) { cb(); return; }
+  pwdCb = cb;
+  $('pwd-modal').style.display = 'flex';
+  setTimeout(() => $('pwd-inp').focus(), 80);
+}
+function pwdSubmit() {
+  const v = $('pwd-inp').value;
+  if (v === PWD) {
+    pwdUnlocked = true; pwdClose();
+    if (pwdCb) { pwdCb(); pwdCb = null; }
+  } else {
+    $('pwd-err').textContent = 'Incorrect password';
+    $('pwd-inp').value = '';
+    $('pwd-inp').focus();
+  }
+}
+function pwdClose() {
+  $('pwd-modal').style.display = 'none';
+  $('pwd-inp').value = '';
+  $('pwd-err').textContent = '';
+  pwdCb = null;
+}
+document.addEventListener('keydown', e => { if(e.key==='Escape') pwdClose(); });
+
+/* ══════════════════════════════════════════════════════
+   APP STATE
+══════════════════════════════════════════════════════ */
+const STATE = { settings: null };
+
+async function loadAll() {
+  const safe = async path => {
+    try { const s=await fbGet(path); return s.exists?s.data():null; }
+    catch(e) { console.warn(path, e.message); return null; }
+  };
+  STATE.settings = await safe('budget/settings');
+  console.log('✅ State loaded');
+}
+
+/* ══════════════════════════════════════════════════════
+   PORTFOLIO — DEFAULT DATA
+══════════════════════════════════════════════════════ */
+/*
+  Each holding has:
+    ticker    — Yahoo/Coinbase symbol (for live) or descriptive (for manual)
+    name      — Display name
+    qty       — Number of units/shares/BTC
+    qtyLabel  — 'BTC', 'shares', 'units'
+    manualPrice — per-unit price (user enters; null = use live API price)
+
+  live = manualPrice is null  →  price from Apps Script
+  manual = manualPrice is set →  value = qty × manualPrice (no API call)
+*/
+const PT_DEFAULT = [
+  /* ── Financial investments ── */
+  {
+    id:'newton-btc', group:'financial',
+    accountType:'Crypto', location:'Newton',
+    holdings:[
+      { ticker:'BTC-CAD', name:'Bitcoin', qty:0, qtyLabel:'BTC', manualPrice:null }
+    ]
+  },
+  {
+    id:'td-tfsa-manny', group:'financial',
+    accountType:'TFSA (Manny)', location:'TD',
+    holdings:[
+      { ticker:'XEQT.TO', name:'iShares Core Equity ETF', qty:256, qtyLabel:'shares', manualPrice:0 }
+    ]
+  },
+  {
+    id:'cibc-tfsa-rani', group:'financial',
+    accountType:'TFSA (Rani)', location:'CIBC',
+    holdings:[
+      { ticker:'0P000070BP.TO', name:'CIBC Balanced Index Fund CL A', qty:413.487, qtyLabel:'units', manualPrice:0 }
+    ]
+  },
+  {
+    id:'cibc-resp', group:'financial',
+    accountType:'RESP (Noor & Veer)', location:'CIBC',
+    holdings:[
+      { ticker:'0P000070BP.TO', name:'CIBC Balanced Index Fund CL A',          qty:780.932,  qtyLabel:'units', manualPrice:0 },
+      { ticker:'0P000071B4.TO', name:'CIBC Nasdaq Index Fund CL A',             qty:174.738,  qtyLabel:'units', manualPrice:0 },
+      { ticker:'0P000071JF.TO', name:'CIBC U.S. Broad Market Index Fund CL A',  qty:124.736,  qtyLabel:'units', manualPrice:0 }
+    ]
+  },
+  {
+    id:'rbc-rrsp-manny', group:'financial',
+    accountType:'RRSP (Manny)', location:'RBC',
+    holdings:[
+      { ticker:'0P000070AD.TO', name:'RBC U.S. Index Fund DZ',            qty:954.408,  qtyLabel:'units', manualPrice:0 },
+      { ticker:'0P00007069.TO', name:'RBC Select Growth Portfolio A',     qty:15.915,   qtyLabel:'units', manualPrice:0 },
+      { ticker:'0P0001OCCA.TO', name:'RBC Global Bond Index ETF Fund D',  qty:1244.128, qtyLabel:'units', manualPrice:0 }
+    ]
+  },
+  /* ── Real estate ── */
+  {
+    id:'woodstock', group:'real_estate',
+    accountType:'Rental Property (1/3 share)', location:'Woodstock, ON',
+    propertyValue:216667, mortgageBalance:169175,
+    rate:3.84, monthlyPayment:862, payoffDate:'Jan 2052',
+    note:"Your 1/3 of $650K property · full mortgage $507,524"
+  }
+];
+
+/* ══════════════════════════════════════════════════════
+   PRIMARY RESIDENCE STATE
+══════════════════════════════════════════════════════ */
+const PR_DEFAULT = {
+  value:        1100000,
+  mortgage:     302562.68,
+  rate:         3.93,
+  payment:      3800,
+  paymentDay:   15,
+  maturity:     'Jul 2028',
+  renewRate:    3.93,
+  address:      'Ajax, ON'
+};
+let prData     = JSON.parse(JSON.stringify(PR_DEFAULT));
+let prEditMode = false;
+let prExpanded = false;
+
+async function prLoad() {
+  try {
+    const d = STATE.settings;
+    if (d && d.prData) prData = { ...PR_DEFAULT, ...d.prData };
+  } catch(e) {}
+}
+
+async function prSave() {
+  try {
+    await fbSet('budget/settings', { prData });
+    saved('pr-saved');
+  } catch(e) { console.warn('prSave failed', e); }
+}
+
+function prCalc() {
+  const equity    = prData.value - prData.mortgage;
+  const equityPct = prData.value > 0 ? (equity / prData.value * 100) : 0;
+  // Payoff calculation
+  const r = prData.rate / 100 / 12;
+  let months = 0;
+  if (r > 0 && prData.payment > prData.mortgage * r) {
+    months = Math.log(prData.payment / (prData.payment - prData.mortgage * r)) / Math.log(1 + r);
+  } else if (r === 0 && prData.payment > 0) {
+    months = prData.mortgage / prData.payment;
+  }
+  const payoffDate = (() => {
+    if (!months || !isFinite(months)) return 'N/A';
+    const d = new Date();
+    d.setMonth(d.getMonth() + Math.round(months));
+    return d.toLocaleDateString('en-CA', { month: 'short', year: 'numeric' });
+  })();
+  const totalInterest = prData.payment * months - prData.mortgage;
+  // Years and months remaining
+  const yrs  = Math.floor(months / 12);
+  const mos  = Math.round(months % 12);
+  const timeLeft = yrs > 0 && mos > 0 ? yrs + ' yrs ' + mos + ' mo'
+                 : yrs > 0             ? yrs + ' yrs'
+                 : mos > 0             ? mos + ' mo'
+                 : 'Paid off';
+  return { equity, equityPct, months, payoffDate, totalInterest, timeLeft };
+}
+
+
+/* PR edit helpers — avoids quote-escaping issues in string concat */
+function prUpdateVal(v) {
+  prData.value = parseFloat(v) || 0;
+  var eq  = prData.value - prData.mortgage;
+  var pct = prData.value > 0 ? (eq / prData.value * 100).toFixed(1) : 0;
+  var el  = document.getElementById('pr-eq-live');
+  if (el) el.textContent = fmtC(eq);
+  var el2 = document.getElementById('pr-pct-live');
+  if (el2) el2.textContent = pct + '% owned';
+}
+function prUpdateMort(v) {
+  prData.mortgage = parseFloat(v) || 0;
+  var eq  = prData.value - prData.mortgage;
+  var pct = prData.value > 0 ? (eq / prData.value * 100).toFixed(1) : 0;
+  var el  = document.getElementById('pr-eq-live');
+  if (el) el.textContent = fmtC(eq);
+  var el2 = document.getElementById('pr-pct-live');
+  if (el2) el2.textContent = pct + '% owned';
+}
+
+function prRender() {
+  const root = $('pr-root');
+  if (!root) return;
+  const { equity, equityPct, payoffDate, totalInterest, timeLeft } = prCalc();
+  const E = prEditMode;
+  const barPct = Math.min(100, Math.max(0, equityPct)).toFixed(1);
+
+  /* ── Collapsed header (always visible) ── */
+  const hdr = `
+    <div onclick="${E ? '' : 'prToggle()'}" style="padding:16px 20px;display:flex;align-items:center;
+      justify-content:space-between;cursor:${E ? 'default' : 'pointer'};user-select:none;
+      transition:background 0.15s;border-bottom:${prExpanded || E ? '1px solid var(--border)' : 'none'};"
+      ${E ? '' : 'onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'transparent\'"'}>
+      <div>
+        <div style="font-size:0.66rem;font-weight:600;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);margin-bottom:8px;">Primary Residence · ${san(prData.address)}</div>
+        <div style="font-family:var(--fh);font-size:1.5rem;font-weight:800;line-height:1;color:var(--red);margin-bottom:7px;">${fmtC(prData.mortgage)}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <span style="font-size:10px;font-weight:600;background:var(--green-dim);color:#15803d;border:1px solid rgba(22,163,74,0.25);padding:2px 9px;border-radius:20px;">Payoff ${payoffDate}</span>
+          <span style="font-size:10px;font-weight:600;background:var(--surface2);color:var(--muted);border:1px solid var(--border2);padding:2px 9px;border-radius:20px;">${timeLeft} remaining</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <span id="pr-saved" style="font-size:12px;color:var(--green);opacity:0;transition:opacity 0.3s;font-weight:600;">✓ Saved</span>
+        ${E
+          ? `<button onclick="event.stopPropagation();prEditMode=false;prRender();prSave();" class="btn btn-success" style="padding:5px 16px;">✓ Save</button>`
+          : `<span style="color:var(--muted);font-size:1rem;display:inline-block;transition:transform 0.25s;transform:rotate(${prExpanded?180:0}deg);">▾</span>`
+        }
+      </div>
+    </div>`;
+
+  if (!prExpanded && !E) {
+    root.innerHTML = '<div class="card">' + hdr + '</div>';
+    return;
+  }
+
+  /* ── Edit mode ── */
+  if (E) {
+    root.innerHTML = '<div class="card">' + hdr +
+      '<div style="padding:16px;display:flex;flex-direction:column;gap:12px;">' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
+          '<div>' +
+            '<div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Property Value ($)</div>' +
+            '<input type="number" inputmode="decimal" value="' + prData.value + '" onfocus="this.select()" oninput="prUpdateVal(this.value)" style="font-size:16px;font-weight:700;font-family:var(--fh);">' +
+          '</div>' +
+          '<div>' +
+            '<div style="font-size:10px;color:var(--red);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Mortgage Balance ($)</div>' +
+            '<input type="number" inputmode="decimal" value="' + prData.mortgage + '" onfocus="this.select()" oninput="prUpdateMort(this.value)" style="font-size:16px;font-weight:700;font-family:var(--fh);color:var(--red);">' +
+          '</div>' +
+        '</div>' +
+        '<div style="padding:12px 14px;background:var(--green-dim);border:1px solid rgba(22,163,74,0.2);border-radius:var(--r);">' +
+          '<div style="font-size:10px;color:var(--green);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;">Equity (live)</div>' +
+          '<div style="display:flex;align-items:baseline;gap:10px;">' +
+            '<div id="pr-eq-live" style="font-family:var(--fh);font-size:1.4rem;font-weight:800;color:var(--green);">' + fmtC(equity) + '</div>' +
+            '<div id="pr-pct-live" style="font-size:12px;color:var(--green);font-weight:600;">' + equityPct.toFixed(1) + '% owned</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">' +
+          '<div><div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Rate (%)</div>' +
+          '<input type="number" inputmode="decimal" step="0.01" value="' + prData.rate + '" onfocus="this.select()" oninput="prData.rate=parseFloat(this.value)||0" style="font-weight:600;color:var(--accent);"></div>' +
+          '<div><div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Monthly ($)</div>' +
+          '<input type="number" inputmode="decimal" value="' + prData.payment + '" onfocus="this.select()" oninput="prData.payment=parseFloat(this.value)||0" style="font-weight:600;color:var(--accent);"></div>' +
+          '<div><div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Matures</div>' +
+          '<input type="text" value="' + san(prData.maturity) + '" onfocus="this.select()" oninput="prData.maturity=this.value" placeholder="e.g. Jul 2028" style="color:var(--accent);"></div>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
+          '<div><div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Renewal Rate (%)</div>' +
+          '<input type="number" inputmode="decimal" step="0.01" value="' + prData.renewRate + '" onfocus="this.select()" oninput="prData.renewRate=parseFloat(this.value)||0" style="font-weight:600;color:var(--accent);"></div>' +
+          '<div><div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Address</div>' +
+          '<input type="text" value="' + san(prData.address) + '" onfocus="this.select()" oninput="prData.address=this.value" style="color:var(--muted);"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+    return;
+  }
+
+  /* ── Expanded view ── */
+  root.innerHTML = '<div class="card">' + hdr +
+    '<div style="animation:fadeIn 0.2s ease;">' +
+
+      '<div style="padding:14px 16px 0;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">' +
+          '<span style="font-size:12px;color:var(--muted);">Equity ' + barPct + '%</span>' +
+          '<span style="font-size:12px;color:var(--muted);">Mortgage ' + (100-parseFloat(barPct)).toFixed(1) + '%</span>' +
+        '</div>' +
+        '<div style="height:10px;background:rgba(220,38,38,0.12);border-radius:5px;overflow:hidden;margin-bottom:14px;">' +
+          '<div style="height:100%;width:' + barPct + '%;background:linear-gradient(90deg,#16a34a,#22c55e);border-radius:5px;"></div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="pr-stat-grid">' +
+        '<div class="pr-stat" style="border-color:rgba(22,163,74,0.2);background:var(--green-dim);">' +
+          '<div class="pr-stat-label" style="color:var(--green);">Your Equity</div>' +
+          '<div class="pr-stat-val" style="color:var(--green);font-size:1.2rem;">' + fmtC(equity) + '</div>' +
+          '<div class="pr-stat-sub">' + barPct + '% owned</div>' +
+        '</div>' +
+        '<div class="pr-stat">' +
+          '<div class="pr-stat-label">Property Value</div>' +
+          '<div class="pr-stat-val">' + fmtC(prData.value) + '</div>' +
+          '<div class="pr-stat-sub">market value</div>' +
+        '</div>' +
+        '<div class="pr-stat" style="border-color:rgba(220,38,38,0.2);">' +
+          '<div class="pr-stat-label" style="color:var(--red);">Balance</div>' +
+          '<div class="pr-stat-val" style="color:var(--red);">' + fmtC(prData.mortgage) + '</div>' +
+          '<div class="pr-stat-sub">' + fmtC(prData.payment) + '/mo</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="padding:4px 16px 12px;display:flex;justify-content:flex-end;gap:8px;">' +
+        '<span id="pr-saved" style="font-size:12px;color:var(--green);opacity:0;transition:opacity 0.3s;font-weight:600;">✓ Saved</span>' +
+        '<button onclick="requirePwd(()=>{prEditMode=true;prRender();})" class="btn" style="padding:6px 14px;font-size:0.72rem;">✎ Edit</button>' +
+      '</div>' +
+      '<div style="margin:0 16px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;">' +
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);">' +
+          [['Rate', prData.rate + '%'], ['Monthly', fmtC(prData.payment)], ['Matures', san(prData.maturity)], ['Payoff', payoffDate]]
+            .map(([l,v]) => '<div style="padding:10px 12px;border-right:0.5px solid var(--border);"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:3px;">' + l + '</div><div style="font-size:13px;font-weight:700;color:var(--accent);font-family:var(--fh);">' + v + '</div></div>').join('') +
+        '</div>' +
+        '<div style="padding:9px 12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+          '<span style="font-size:11px;color:var(--muted);">Renewal rate <strong style="color:var(--accent);">' + prData.renewRate + '%</strong></span>' +
+          '<span style="font-size:11px;color:var(--muted);">Interest remaining <strong style="color:var(--text);">' + fmtC(totalInterest) + '</strong></span>' +
+        '</div>' +
+      '</div>' +
+
+    '</div>' +
+  '</div>';
+}
+
+function prToggle() { prExpanded = !prExpanded; prRender(); }
+
+async function initPrimaryResidence() {
+  const root = $('sections-root');
+  if (!root) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'section-wrap';
+  wrap.innerHTML = '<div class="sec-label">Primary Residence</div><div id="pr-root"></div>';
+  root.appendChild(wrap);
+  await prLoad();
+  prRender();
+}
+
+/* ══════════════════════════════════════════════════════
+   PORTFOLIO STATE
+══════════════════════════════════════════════════════ */
+let ptAccts    = JSON.parse(JSON.stringify(PT_DEFAULT));
+let ptExpanded = false;
+let ptEditMode = false;
+let ptFetching = false;
+const ptCache  = {};   /* ticker → { price, name, ts } */
+const PT_TTL   = 300000;
+let ptLastUpdated = '';
+const PT_URL   = 'https://script.google.com/macros/s/AKfycbx5jtDlIxYkserWXUaUbvq-UXUH_cVdcoUYKOKII4FmTrGYf1jWwfkjdF0dnemNYPnawQ/exec';
+
+/* ══════════════════════════════════════════════════════
+   PRICE FETCHING  — only live tickers (BTC + XEQT)
+══════════════════════════════════════════════════════ */
+function ptJsonp(url) {
+  return new Promise((res, rej) => {
+    const cb = 'ptcb_' + Date.now();
+    const el = document.createElement('script');
+    const t  = setTimeout(() => { cleanup(); rej(new Error('timeout')); }, 12000);
+    window[cb] = data => { cleanup(); res(data); };
+    el.onerror = () => { cleanup(); rej(new Error('script error')); };
+    el.src = url + '&callback=' + cb;
+    document.head.appendChild(el);
+    function cleanup() { clearTimeout(t); delete window[cb]; el.remove(); }
+  });
+}
+
+async function ptFetchLive() {
+  if (ptFetching) return;
+  ptFetching = true;
+  /* Only fetch tickers where manualPrice === null */
+  const liveTickers = [...new Set(
+    ptAccts.filter(a => a.group === 'financial')
+      .flatMap(a => a.holdings)
+      .filter(h => h.manualPrice === null)
+      .map(h => h.ticker)
+  )];
+  const stale = liveTickers.filter(t => {
+    const c = ptCache[t];
+    return !c || Date.now() - c.ts > PT_TTL;
+  });
+  if (!stale.length) { ptFetching = false; return; }
+
+  try {
+    const url = PT_URL + '?action=prices&symbols=' + encodeURIComponent(stale.join(','));
+    const j   = await ptJsonp(url);
+    Object.entries(j.prices || {}).forEach(([t, d]) => {
+      ptCache[t] = { ...d, ts: Date.now() };
+    });
+    console.log('✅ Live prices:', Object.keys(j.prices || {}).length, 'tickers');
+  } catch(e) {
+    console.warn('JSONP failed:', e.message);
+    /* BTC direct fallback */
+    if (stale.includes('BTC-CAD')) {
+      try {
+        const r = await fetch('https://api.coinbase.com/v2/prices/BTC-CAD/spot');
+        const p = parseFloat((await r.json()).data.amount);
+        if (p > 0) ptCache['BTC-CAD'] = { price:p, currency:'CAD', name:'Bitcoin', ts:Date.now() };
+      } catch(e2) {}
+    }
+  }
+  ptFetching = false;
+}
+
+/* ══════════════════════════════════════════════════════
+   CALCULATIONS
+══════════════════════════════════════════════════════ */
+function ptHoldingVal(h) {
+  if (h.manualPrice === null) {
+    /* live */
+    const p = ptCache[h.ticker];
+    return (p && h.qty > 0) ? p.price * h.qty : 0;
+  }
+  /* manual */
+  return (h.qty > 0 && h.manualPrice > 0) ? h.qty * h.manualPrice : 0;
+}
+function ptAcctVal(acc) {
+  if (acc.group === 'real_estate')
+    return Math.max(0, (acc.propertyValue||0) - (acc.mortgageBalance||0));
+  return acc.holdings.reduce((s,h) => s + ptHoldingVal(h), 0);
+}
+function ptGroupTotal(g) {
+  return ptAccts.filter(a => a.group === g).reduce((s,a) => s + ptAcctVal(a), 0);
+}
+
+/* ══════════════════════════════════════════════════════
+   FIREBASE SAVE / LOAD
+══════════════════════════════════════════════════════ */
+async function ptLoad() {
+  try {
+    const d = STATE.settings;
+    if (d && d.ptAccounts && d.ptAccounts.length && d.ptAccounts.some(a => a.group)) {
+      ptAccts = d.ptAccounts;
+      // Ensure real estate entry always exists
+      if (!ptAccts.some(a => a.group === 'real_estate')) {
+        const re = PT_DEFAULT.find(a => a.group === 'real_estate');
+        if (re) ptAccts.push(JSON.parse(JSON.stringify(re)));
+      }
+      // Enforce: ONLY BTC-CAD is live. Everything else is manual.
+      ptAccts.forEach(acc => {
+        if (acc.holdings) {
+          acc.holdings.forEach(h => {
+            if (h.ticker === 'BTC-CAD') {
+              h.manualPrice = null;   // force live
+            } else if (h.manualPrice === null) {
+              h.manualPrice = 0;      // force manual if was previously live
+            }
+          });
+        }
+      });
+      // Load last updated timestamp
+      if (d.ptLastUpdated) ptLastUpdated = d.ptLastUpdated;
+    }
+  } catch(e) {}
+}
+
+async function ptSave() {
+  try {
+    const now = new Date().toLocaleDateString('en-CA', {year:'numeric',month:'long',day:'numeric'});
+    ptLastUpdated = now;
+    await fbSet('budget/settings', { ptAccounts: ptAccts, ptLastUpdated: now });
+    saved('pt-saved');
+    // Update the timestamp display without full re-render
+    const el = document.getElementById('pt-last-updated');
+    if (el) el.textContent = '🕐 Updated ' + now;
+  } catch(e) { console.warn('ptSave failed', e); }
+}
+
+
+/* ══════════════════════════════════════════════════════
+   MARKET EXPOSURE — auto-calculated from ptAccts
+   Allocations are approximate based on fund mandates.
+   Unknown tickers go into "Other".
+══════════════════════════════════════════════════════ */
+const PT_EXP_MAP = {
+  'BTC-CAD':       { 'Crypto':      1.00 },
+  'XEQT.TO':       { 'US Broad':    0.45, 'Canadian Eq': 0.25, 'Intl Equity': 0.20, 'Emerging':   0.10 },
+  '0P000070BP.TO': { 'US Broad':    0.24, 'Canadian Eq': 0.24, 'Intl Equity': 0.12, 'CA Bonds':   0.40 },
+  '0P000071B4.TO': { 'US Tech':     1.00 },
+  '0P000071JF.TO': { 'US Broad':    1.00 },
+  '0P000070AD.TO': { 'US Broad':    1.00 },
+  '0P00007069.TO': { 'US Broad':    0.40, 'Canadian Eq': 0.30, 'Intl Equity': 0.10, 'CA Bonds':   0.20 },
+  '0P0001OCCA.TO': { 'US Bonds':    0.40, 'Global Bonds':0.60 },
+};
+
+/* Bond sub-keys — rendered as ONE tile with internal breakdown */
+const PT_BOND_KEYS   = ['CA Bonds','US Bonds','Global Bonds'];
+const PT_BOND_COLORS = { 'CA Bonds':'#d97706', 'US Bonds':'#1d4ed8', 'Global Bonds':'#0891b2' };
+const PT_BOND_FLAGS  = { 'CA Bonds':'🍁 Canadian', 'US Bonds':'🇺🇸 US', 'Global Bonds':'🌐 Global' };
+
+/* Equity sub-categories — rendered as ONE tile with internal breakdown */
+const PT_EQUITY_KEYS = ['US Broad','US Tech','Canadian Eq','Intl Equity','Emerging'];
+const PT_EQUITY_DISPLAY = [
+  { keys:['US Broad','US Tech'], label:'🇺🇸 US',            color:'#2563eb' },
+  { keys:['Canadian Eq'],        label:'🇨🇦 Canada',        color:'#dc2626' },
+  { keys:['Intl Equity'],        label:'🌍 International',  color:'#059669' },
+  { keys:['Emerging'],           label:'🌐 Emerging',       color:'#b45309' },
+];
+
+const PT_EXP_CFG = [
+  { key:'EQUITIES',    label:'Equities',   flag:'📈', color:'#2563eb', isEquities:true },
+  { key:'Real Estate', label:'Real Estate',flag:'🏠',  color:'#16a34a' },
+  { key:'BONDS',       label:'Bonds',      flag:'🏦',  color:'#d97706', isBonds:true   },
+  { key:'Crypto',      label:'Crypto',     flag:'₿',   color:'#7c3aed' },
+  { key:'Other',       label:'Other',      flag:'📦',  color:'#888'    },
+];
+
+function ptCalcExposure() {
+  const totals = {};
+  ptAccts.forEach(acc => {
+    if (acc.group === 'real_estate') {
+      const eq = Math.max(0,(acc.propertyValue||0)-(acc.mortgageBalance||0));
+      if (eq > 0) totals['Real Estate'] = (totals['Real Estate']||0) + eq;
+      return;
+    }
+    (acc.holdings||[]).forEach(h => {
+      const val = ptHoldingVal(h);
+      if (val <= 0) return;
+      const map = PT_EXP_MAP[h.ticker];
+      if (map) {
+        Object.entries(map).forEach(([cat, pct]) => {
+          totals[cat] = (totals[cat]||0) + val * pct;
+        });
+      } else {
+        totals['Other'] = (totals['Other']||0) + val;
+      }
+    });
+  });
+  return totals;
+}
+
+function ptBondTotal(totals) {
+  return PT_BOND_KEYS.reduce((s,k) => s + (totals[k]||0), 0);
+}
+function ptEquityTotal(totals) {
+  return PT_EQUITY_KEYS.reduce((s,k) => s + (totals[k]||0), 0);
+}
+
+function ptRenderExposure() {
+  const totals  = ptCalcExposure();
+  const grandT  = Object.values(totals).reduce((s,v)=>s+v, 0);
+  if (grandT <= 0) return '';
+
+  /* sort: bonds and equities treated as combined values for ordering */
+  const rows = PT_EXP_CFG.filter(c => {
+    if (c.isBonds)    return ptBondTotal(totals) > 0;
+    if (c.isEquities) return ptEquityTotal(totals) > 0;
+    return (totals[c.key]||0) > 0;
+  }).sort((a,b) => {
+    const va = a.isBonds ? ptBondTotal(totals) : a.isEquities ? ptEquityTotal(totals) : (totals[a.key]||0);
+    const vb = b.isBonds ? ptBondTotal(totals) : b.isEquities ? ptEquityTotal(totals) : (totals[b.key]||0);
+    return vb - va;
+  });
+
+  const tiles = rows.map(c => {
+    if (c.isEquities) {
+      /* ── equities tile with US vs Canada breakdown ── */
+      const eqTotal = ptEquityTotal(totals);
+      const eqPct   = (eqTotal / grandT * 100).toFixed(1);
+      const eqBarW  = Math.max(4, Math.round(eqTotal / grandT * 100));
+      const eqRows  = PT_EQUITY_DISPLAY
+        .map(d => {
+          const ev = d.keys.reduce((s,k)=>s+(totals[k]||0),0);
+          if (ev <= 0) return '';
+          const ep = (ev / eqTotal * 100).toFixed(0);
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;gap:4px;min-width:0;">
+            <span style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px;flex-shrink:0;">
+              <span style="width:6px;height:6px;border-radius:1px;background:${d.color};display:inline-block;flex-shrink:0;"></span>
+              ${d.label}
+            </span>
+            <span style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;">${fmtC(ev)} <span style="font-weight:400;color:var(--muted);">${ep}%</span></span>
+          </div>`;
+        }).join('');
+      return `
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;min-width:0;">
+          <div style="font-size:18px;margin-bottom:4px;">${c.flag}</div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.label}</div>
+          <div style="font-family:var(--fh);font-size:1rem;font-weight:800;color:var(--text);line-height:1;">${fmtC(eqTotal)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">${eqPct}% of portfolio</div>
+          <div style="height:3px;background:rgba(0,0,0,0.08);border-radius:2px;margin-top:8px;margin-bottom:8px;overflow:hidden;">
+            <div style="height:100%;width:${eqBarW}%;background:${c.color};border-radius:2px;opacity:0.85;"></div>
+          </div>
+          <div style="border-top:0.5px solid var(--border);padding-top:7px;display:flex;flex-direction:column;gap:3px;min-width:0;">
+            ${eqRows}
+          </div>
+        </div>`;
+    }
+
+    if (c.isBonds) {
+      /* ── special bonds tile with internal breakdown ── */
+      const bondTotal = ptBondTotal(totals);
+      const bondPct   = (bondTotal / grandT * 100).toFixed(1);
+      const bondBarW  = Math.max(4, Math.round(bondTotal / grandT * 100));
+      const splitRows = PT_BOND_KEYS
+        .filter(k => (totals[k]||0) > 0)
+        .map(k => {
+          const bv   = totals[k];
+          const bpct = (bv / bondTotal * 100).toFixed(0);
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;gap:4px;min-width:0;">
+            <span style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;">
+              <span style="width:6px;height:6px;border-radius:1px;background:${PT_BOND_COLORS[k]};display:inline-block;flex-shrink:0;"></span>
+              ${PT_BOND_FLAGS[k]}
+            </span>
+            <span style="font-size:11px;font-weight:600;color:var(--text);">${fmtC(bv)} <span style="font-weight:400;color:var(--muted);">${bpct}%</span></span>
+          </div>`;
+        }).join('');
+      return `
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;min-width:0;">
+          <div style="font-size:18px;margin-bottom:4px;">${c.flag}</div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.label}</div>
+          <div style="font-family:var(--fh);font-size:1rem;font-weight:800;color:var(--text);line-height:1;">${fmtC(bondTotal)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">${bondPct}% of portfolio</div>
+          <div style="height:3px;background:rgba(0,0,0,0.08);border-radius:2px;margin-top:8px;margin-bottom:8px;overflow:hidden;">
+            <div style="height:100%;width:${bondBarW}%;background:${c.color};border-radius:2px;opacity:0.85;"></div>
+          </div>
+          <div style="border-top:0.5px solid var(--border);padding-top:7px;display:flex;flex-direction:column;gap:3px;min-width:0;">
+            ${splitRows}
+          </div>
+        </div>`;
+    }
+    /* ── standard tile ── */
+    const val  = totals[c.key];
+    const pct  = (val / grandT * 100).toFixed(1);
+    const barW = Math.max(4, Math.round(val / grandT * 100));
+    return `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;min-width:0;">
+        <div style="font-size:18px;margin-bottom:4px;">${c.flag}</div>
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:3px;">${c.label}</div>
+        <div style="font-family:var(--fh);font-size:1rem;font-weight:800;color:var(--text);line-height:1;">${fmtC(val)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${pct}% of portfolio</div>
+        <div style="height:3px;background:rgba(0,0,0,0.08);border-radius:2px;margin-top:8px;overflow:hidden;">
+          <div style="height:100%;width:${barW}%;background:${c.color};border-radius:2px;opacity:0.85;"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div style="border-top:1px solid var(--border);">
+      <div style="padding:9px 20px;background:rgba(0,0,0,0.02);border-bottom:1px solid var(--border);
+        display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);">🌍 Market Exposure</span>
+        <span style="font-size:10px;color:var(--muted);">approx. based on fund mandates</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:14px 16px;">
+        ${tiles}
+      </div>
+    </div>`;
+}
+
+/* ══════════════════════════════════════════════════════
+   RENDER
+══════════════════════════════════════════════════════ */
+function ptRender() {
+  const root = $('pt-root');
+  if (!root) return;
+  const sy = window.scrollY;
+  const finTotal = ptGroupTotal('financial');
+  const reTotal  = ptGroupTotal('real_estate');
+  const grand    = finTotal + reTotal;
+  const E        = ptEditMode;
+
+  /* ── last updated badge (Option C — inline next to total) ── */
+  const updatedBadge = ptLastUpdated
+    ? `<span id="pt-last-updated" style="font-size:10px;font-weight:500;color:var(--muted);
+        background:var(--surface2);border:1px solid var(--border2);border-radius:20px;
+        padding:2px 9px;white-space:nowrap;vertical-align:middle;">🕐 Updated ${ptLastUpdated}</span>`
+    : '';
+  const lastUpdatedBar = '';
+
+  /* ── collapsed header ── */
+  const header = `
+    <div onclick="ptToggle()" style="padding:18px 20px;display:flex;align-items:center;
+      justify-content:space-between;cursor:pointer;user-select:none;transition:background 0.15s;
+      border-bottom:${ptExpanded?'1px solid var(--border)':'none'};"
+      onmouseover="this.style.background='var(--surface2)'"
+      onmouseout="this.style.background='transparent'">
+      <div>
+        <div style="font-size:0.66rem;font-weight:600;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);margin-bottom:6px;">Total Portfolio Value</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:2px;">
+          <div style="font-family:var(--fh);font-size:2.1rem;font-weight:800;line-height:1;color:${grand>0?'var(--green)':'var(--muted)'};">
+            ${grand > 0 ? fmtC(grand) : '<span style="font-size:1.2rem;font-weight:400;">Loading…</span>'}
+          </div>
+          ${updatedBadge}
+        </div>
+        <div style="font-size:0.7rem;color:var(--muted);margin-top:5px;display:flex;gap:14px;flex-wrap:wrap;">
+          <span>📊 Investments <strong style="color:var(--text);">${fmtC(finTotal)}</strong></span>
+          <span>🏠 Real Estate <strong style="color:var(--text);">${fmtC(reTotal)}</strong></span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <span id="pt-saved" style="font-size:12px;color:var(--green);opacity:0;transition:opacity 0.3s;font-weight:600;">✓ Saved</span>
+${E
+          ? `<button onclick="event.stopPropagation();ptDone()" class="btn btn-success" style="padding:5px 16px;">✓ Save</button>`
+          : `<button onclick="event.stopPropagation();requirePwd(()=>{ptEditMode=true;ptExpanded=true;ptRender();})" class="btn" style="padding:5px 14px;">✎ Edit</button>`
+        }
+        <span style="color:var(--muted);font-size:1rem;display:inline-block;transition:transform 0.25s;transform:rotate(${ptExpanded?180:0}deg);">▾</span>
+      </div>
+    </div>`;
+
+  if (!ptExpanded) {
+    root.innerHTML = `<div class="card">${header}</div>`;
+    window.scrollTo(0,sy); return;
+  }
+
+  /* ── financial rows ── */
+  const finAccts = ptAccts.filter(a => a.group === 'financial');
+  const finRows  = finAccts.map(acc => {
+    const ai       = ptAccts.indexOf(acc);
+    const accTotal = ptAcctVal(acc);
+    const rows = acc.holdings.map((h, hi) => {
+      const isLive  = h.manualPrice === null;
+      const liveP   = isLive ? ptCache[h.ticker] : null;
+      const val     = ptHoldingVal(h);
+      const isFirst = hi === 0;
+
+      if (E) {
+        /* EDIT MODE — no ptRender on input */
+        return `
+          <div style="border-bottom:0.5px solid var(--border);
+            padding:${isFirst?'12px':'6px'} 20px 12px;
+            background:${isFirst?'transparent':'rgba(0,0,0,0.012)'};">
+            ${isFirst ? `
+              <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:130px;">
+                  <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Account</div>
+                  <input type="text" value="${san(acc.accountType)}" oninput="ptAccts[${ai}].accountType=this.value">
+                </div>
+                <div style="width:100px;">
+                  <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Location</div>
+                  <input type="text" value="${san(acc.location)}" oninput="ptAccts[${ai}].location=this.value">
+                </div>
+              </div>` : ''}
+            <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
+              <div style="flex:1.6;min-width:130px;display:flex;flex-direction:column;gap:4px;">
+                <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">Fund / Investment Name</div>
+                <input type="text" value="${san(h.name||'')}"
+                  oninput="ptAccts[${ai}].holdings[${hi}].name=this.value"
+                  placeholder="e.g. iShares Core Equity ETF"
+                  style="font-weight:600;font-family:var(--fh);">
+                <div style="font-size:10px;color:var(--muted);margin-top:2px;">Ticker: <strong>${san(h.ticker)}</strong>
+                  ${isLive ? '<span class="pt-tag-live">LIVE</span>' : '<span class="pt-tag-manual">MANUAL</span>'}
+                </div>
+              </div>
+              <div style="flex:1;min-width:90px;">
+                <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Units / Shares</div>
+                <div style="display:flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r-sm);padding:7px 10px;">
+                  <input type="number" inputmode="decimal" step="any"
+                    value="${h.qty||''}" placeholder="0" onfocus="this.select()"
+                    oninput="ptAccts[${ai}].holdings[${hi}].qty=parseFloat(this.value)||0"
+                    style="background:transparent;border:none;font-size:16px;font-weight:700;font-family:var(--fh);text-align:right;padding:0;width:100%;">
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:2px;text-align:right;">${san(h.qtyLabel)}</div>
+              </div>
+              ${!isLive ? `
+              <div style="flex:1;min-width:90px;">
+                <div style="font-size:10px;color:var(--amber);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Price / Unit ($)</div>
+                <div style="background:rgba(217,119,6,0.06);border:1px solid rgba(217,119,6,0.3);border-radius:var(--r-sm);padding:7px 10px;">
+                  <input type="number" inputmode="decimal" step="0.0001"
+                    value="${h.manualPrice||''}" placeholder="0.00" onfocus="this.select()"
+                    oninput="(function(v){ptAccts[${ai}].holdings[${hi}].manualPrice=parseFloat(v)||0;var vv=ptAccts[${ai}].holdings[${hi}].qty*(parseFloat(v)||0);var el=document.getElementById('ptv-${ai}-${hi}');if(el)el.textContent=vv>0?fmtC(vv):'—';})(this.value)"
+                    style="background:transparent;border:none;font-size:16px;font-weight:700;font-family:var(--fh);color:var(--amber);text-align:right;padding:0;width:100%;">
+                </div>
+              </div>` : ''}
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;min-width:70px;">
+                <div id="ptv-${ai}-${hi}" class="pt-val" style="color:${val>0?'var(--green)':'var(--muted);font-weight:400'};">${val>0?fmtC(val):'—'}</div>
+                <button onclick="ptAccts[${ai}].holdings.splice(${hi},1);if(!ptAccts[${ai}].holdings.length)ptAccts.splice(${ai},1);ptRender();"
+                  style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:2px 0;line-height:1;">×</button>
+              </div>
+            </div>
+            ${isLive && !liveP ? `<div style="font-size:10px;color:var(--amber);margin-top:6px;">⚠ No live price yet — tap ↻ to fetch</div>` : ''}
+          </div>`;
+      }
+
+      /* VIEW MODE */
+      const priceStr = isLive
+        ? (liveP ? fmtC2(liveP.price) + ' CAD' : '—')
+        : (h.manualPrice > 0 ? fmtC2(h.manualPrice) + '/unit' : 'enter price');
+      return `
+        <div class="pt-row-fin"
+          style="grid-template-columns:1.2fr 1.6fr 0.9fr 0.9fr 1fr;padding:${isFirst?'12px':'6px'} 20px;">
+          <div>
+            ${isFirst ? `
+              <div style="font-size:13px;font-weight:700;color:var(--text);font-family:var(--fh);">${san(acc.accountType)}</div>
+              <div class="pt-sub">${san(acc.location)}</div>` : ''}
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--text);">${san(h.name||h.ticker)}</div>
+            <div class="pt-sub">${san(h.ticker)} ${isLive?'<span class="pt-tag-live">LIVE</span>':'<span class="pt-tag-manual">MANUAL</span>'}</div>
+          </div>
+          <div style="text-align:right;" class="pt-hide-sm">
+            <div style="font-size:13px;color:var(--text);">${h.qty>0?Number(h.qty).toLocaleString('en-CA',{maximumFractionDigits:4}):'—'}</div>
+            <div class="pt-sub">${san(h.qtyLabel)}</div>
+          </div>
+          <div style="text-align:right;" class="pt-hide-sm">
+            <div style="font-size:12px;color:${isLive?'var(--text)':'var(--amber)'};">${priceStr}</div>
+            <div class="pt-sub">${isLive?'live price':'manual'}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="pt-val" style="color:${val>0?'var(--green)':h.manualPrice===0?'var(--amber)':'var(--muted)'};">
+              ${val>0 ? fmtC(val) : h.manualPrice===0&&h.qty>0 ? '<span style="font-size:11px;color:var(--amber);font-weight:500;">enter price ✎</span>' : '—'}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    const sub = (acc.holdings.length > 1 || accTotal > 0) ? `
+      <div class="pt-subtotal">
+        <span style="font-size:11px;color:var(--muted);">${san(acc.accountType)} · ${acc.holdings.length} holding${acc.holdings.length!==1?'s':''}</span>
+        <span class="pt-val" style="font-size:12px;color:${accTotal>0?'var(--text)':'var(--muted)'};">${accTotal>0?fmtC(accTotal):'—'}</span>
+      </div>` : '';
+
+    const editBtns = E ? `
+      <div style="padding:4px 20px 10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="ptAccts[${ai}].holdings.push({ticker:'NEW.TO',name:'New Fund',qty:0,qtyLabel:'units',manualPrice:0});ptRender();"
+          class="btn" style="font-size:11px;color:var(--accent);border-color:rgba(37,99,235,0.35);">+ Add holding</button>
+        <button onclick="if(confirm('Remove account?')){ptAccts.splice(${ai},1);ptRender();}"
+          class="btn btn-danger" style="font-size:11px;">✕ Remove</button>
+      </div>` : '';
+
+    return `<div style="border-bottom:1px solid var(--border);">${rows}${editBtns}${sub}</div>`;
+  }).join('');
+
+  /* ── real estate rows ── */
+  const reAccts = ptAccts.filter(a => a.group === 'real_estate');
+  const reRows  = reAccts.map(acc => {
+    const ai     = ptAccts.indexOf(acc);
+    const equity = Math.max(0,(acc.propertyValue||0)-(acc.mortgageBalance||0));
+    const pct    = acc.propertyValue>0 ? Math.round(equity/acc.propertyValue*100) : 0;
+
+    if (E) return `
+      <div style="border-bottom:1px solid var(--border);padding:16px 20px;">
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:130px;">
+            <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Property</div>
+            <input type="text" value="${san(acc.accountType)}" oninput="ptAccts[${ai}].accountType=this.value">
+          </div>
+          <div style="width:130px;">
+            <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Location</div>
+            <input type="text" value="${san(acc.location)}" oninput="ptAccts[${ai}].location=this.value">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          <div>
+            <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Your Share Value ($)</div>
+            <input type="number" inputmode="decimal" value="${acc.propertyValue||''}" onfocus="this.select()"
+              oninput="(function(v){ptAccts[${ai}].propertyValue=parseFloat(v)||0;var eq=Math.max(0,(ptAccts[${ai}].propertyValue||0)-(ptAccts[${ai}].mortgageBalance||0));var p=ptAccts[${ai}].propertyValue>0?Math.round(eq/ptAccts[${ai}].propertyValue*100):0;var el=document.getElementById('re-eq-${ai}');if(el)el.innerHTML=fmtC(eq)+'<span style=\\'font-size:11px;margin-left:6px;\\'>'+p+'% owned</span>'})(this.value)"
+              style="font-weight:700;font-family:var(--fh);">
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--red);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Mortgage Balance ($)</div>
+            <input type="number" inputmode="decimal" value="${acc.mortgageBalance||''}" onfocus="this.select()"
+              oninput="(function(v){ptAccts[${ai}].mortgageBalance=parseFloat(v)||0;var eq=Math.max(0,(ptAccts[${ai}].propertyValue||0)-(ptAccts[${ai}].mortgageBalance||0));var p=ptAccts[${ai}].propertyValue>0?Math.round(eq/ptAccts[${ai}].propertyValue*100):0;var el=document.getElementById('re-eq-${ai}');if(el)el.innerHTML=fmtC(eq)+'<span style=\\'font-size:11px;margin-left:6px;\\'>'+p+'% owned</span>'})(this.value)"
+              style="font-weight:700;font-family:var(--fh);color:var(--red);">
+          </div>
+        </div>
+        <div style="padding:10px 14px;background:var(--green-dim);border:1px solid rgba(22,163,74,0.2);border-radius:var(--r-sm);margin-bottom:14px;">
+          <div style="font-size:10px;color:var(--green);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;">Equity (live)</div>
+          <div id="re-eq-${ai}" style="font-family:var(--fh);font-size:1.3rem;font-weight:800;color:var(--green);">
+            ${fmtC(equity)}<span style="font-size:11px;margin-left:6px;">${pct}% owned</span>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:12px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px;">Mortgage Details</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+            <div>
+              <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Rate (%)</div>
+              <input type="number" inputmode="decimal" step="0.01" value="${acc.rate||''}" onfocus="this.select()" oninput="ptAccts[${ai}].rate=parseFloat(this.value)||0" style="font-weight:600;color:var(--accent);">
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Monthly ($)</div>
+              <input type="number" inputmode="decimal" value="${acc.monthlyPayment||''}" onfocus="this.select()" oninput="ptAccts[${ai}].monthlyPayment=parseFloat(this.value)||0" style="font-weight:600;color:var(--accent);">
+            </div>
+            <div>
+              <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Payoff Date</div>
+              <input type="text" value="${san(acc.payoffDate||'')}" onfocus="this.select()" oninput="ptAccts[${ai}].payoffDate=this.value" style="color:var(--accent);">
+            </div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Note</div>
+            <input type="text" value="${san(acc.note||'')}" oninput="ptAccts[${ai}].note=this.value" style="font-size:14px;color:var(--muted);">
+          </div>
+        </div>
+      </div>`;
+
+    return `
+      <div style="border-bottom:0.5px solid var(--border);">
+        <div class="pt-row-re">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text);font-family:var(--fh);">${san(acc.accountType)}</div>
+            <div class="pt-sub">${san(acc.location)}</div>
+          </div>
+          <div style="text-align:right;" class="pt-hide-sm">
+            <div style="font-size:13px;font-weight:600;color:var(--text);font-family:var(--fh);">${fmtC(acc.propertyValue||0)}</div>
+            <div class="pt-sub">your share</div>
+          </div>
+          <div style="text-align:right;" class="pt-hide-sm">
+            <div style="font-size:13px;font-weight:600;color:var(--red);font-family:var(--fh);">−${fmtC(acc.mortgageBalance||0)}</div>
+            <div class="pt-sub">mortgage</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="pt-val" style="font-size:14px;color:var(--green);">${fmtC(equity)}</div>
+            <div class="pt-sub" style="color:var(--green);">${pct}% owned</div>
+          </div>
+        </div>
+        <div style="padding:0 20px 12px;display:flex;gap:14px;flex-wrap:wrap;">
+          ${acc.rate         ? `<span style="font-size:11px;color:var(--muted);">Rate <strong style="color:var(--accent);">${acc.rate}%</strong></span>` : ''}
+          ${acc.monthlyPayment ? `<span style="font-size:11px;color:var(--muted);">Monthly <strong style="color:var(--accent);">${fmtC(acc.monthlyPayment)}</strong></span>` : ''}
+          ${acc.payoffDate    ? `<span style="font-size:11px;color:var(--muted);">Payoff <strong style="color:var(--accent);">${san(acc.payoffDate)}</strong></span>` : ''}
+          ${acc.note          ? `<span style="font-size:11px;color:var(--muted);font-style:italic;">${san(acc.note)}</span>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+
+  /* ── assemble ── */
+  root.innerHTML = `<div class="card">
+    ${header}
+    <div style="animation:fadeIn 0.2s ease;">
+      <div class="pt-group-hdr" style="background:rgba(37,99,235,0.03);">
+        <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);">📊 Financial Investments</span>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span id="pt-saved" style="font-size:12px;color:var(--green);opacity:0;transition:opacity 0.3s;font-weight:600;">✓ Saved</span>
+          <span style="font-family:var(--fh);font-size:0.9rem;font-weight:700;color:var(--text);">${fmtC(finTotal)}</span>
+          ${E
+            ? `<button onclick="ptDone()" class="btn btn-success" style="padding:6px 14px;font-size:0.72rem;">✓ Save</button>`
+            : `<button onclick="requirePwd(()=>{ptEditMode=true;ptRender();})" class="btn" style="padding:6px 14px;font-size:0.72rem;">✎ Edit</button>`
+          }
+        </div>
+      </div>
+      <div class="pt-col-hdr pt-fin-grid">
+        <span>Account</span><span>Investment</span>
+        <span style="text-align:right;" class="pt-hide-sm">Qty</span>
+        <span style="text-align:right;" class="pt-hide-sm">Price/Unit</span>
+        <span style="text-align:right;color:var(--accent);">Value</span>
+      </div>
+      ${finRows}
+      ${E ? `<div style="padding:10px 20px 14px;">
+        <button onclick="(function(){const re=ptAccts.findIndex(a=>a.group==='real_estate');ptAccts.splice(re>=0?re:ptAccts.length,0,{id:'acc-'+Date.now(),group:'financial',accountType:'New Account',location:'',holdings:[{ticker:'NEW.TO',name:'New Fund',qty:0,qtyLabel:'units',manualPrice:0}]});ptRender();})()"
+          class="btn btn-primary" style="width:100%;font-size:12px;padding:10px;border-radius:var(--r-sm);">+ Add Account</button>
+        <div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px;">BTC-CAD &amp; XEQT.TO fetch live · all others use manual price</div>
+      </div>` : ''}
+      <div class="pt-group-hdr" style="background:rgba(22,163,74,0.03);border-top:1px solid var(--border);">
+        <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);">🏠 Real Estate Equity</span>
+        <span style="font-family:var(--fh);font-size:0.9rem;font-weight:700;color:var(--text);">${fmtC(reTotal)}</span>
+      </div>
+      <div class="pt-col-hdr pt-re-grid">
+        <span>Property</span>
+        <span style="text-align:right;" class="pt-hide-sm">Your Value</span>
+        <span style="text-align:right;" class="pt-hide-sm">Mortgage</span>
+        <span style="text-align:right;color:var(--green);">Equity</span>
+      </div>
+      ${reRows}
+      ${ptRenderExposure()}
+      <div class="pt-footer">
+        <div>
+          <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--green);margin-bottom:4px;">Total Wealth</div>
+          <div style="font-family:var(--fh);font-size:1.8rem;font-weight:800;color:var(--green);line-height:1;">${fmtC(grand)}</div>
+        </div>
+        <div style="font-size:12px;color:var(--green);text-align:right;line-height:2.2;">
+          <div>📊 Investments — <strong>${fmtC(finTotal)}</strong></div>
+          <div>🏠 Real Estate — <strong>${fmtC(reTotal)}</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  window.scrollTo(0, sy);
+}
+
+/* ══════════════════════════════════════════════════════
+   ACTIONS
+══════════════════════════════════════════════════════ */
+function ptToggle() { ptExpanded = !ptExpanded; ptRender(); }
+
+async function ptRefresh(btn) {
+  if (btn) { btn.textContent='…'; btn.disabled=true; }
+  Object.values(ptCache).forEach(c => c.ts=0);
+  await ptFetchLive();
+  ptRender();
+  if (btn) { btn.textContent='↻'; btn.disabled=false; }
+}
+
+async function ptDone() {
+  ptEditMode = false;
+  ptRender();
+  await ptSave();
+}
+
+/* ══════════════════════════════════════════════════════
+   BOOT
+══════════════════════════════════════════════════════ */
+async function init() {
+  await loadAll();
+
+  /* render shell */
+  $('app').innerHTML = `
+    <div class="section-wrap">
+      <div class="sec-label">Investment Portfolio</div>
+      <div id="pt-root"></div>
+    </div>
+    <div id="sections-root"></div>`;
+
+  /* load saved portfolio accounts */
+  await ptLoad();
+
+  /* render immediately (shows manual values + real estate right away) */
+  ptRender();
+
+  /* fetch live prices in background → re-render */
+  ptFetchLive().then(() => ptRender());
+
+  /* Primary Residence */
+  await initPrimaryResidence();
+}
+
+document.addEventListener('DOMContentLoaded', () => { window.scrollTo(0,0); init(); });
+</script>
+</body>
+</html>
