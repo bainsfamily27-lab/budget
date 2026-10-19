@@ -634,6 +634,7 @@ function prToggle() { prExpanded = !prExpanded; prRender(); }
 /* ══════════════════════════════════════════════════════
    MONTHLY EXPENSES
 ══════════════════════════════════════════════════════ */
+const EXP_VERSION = 2;
 const EXP_DEFAULT = [
   { id:'home',  icon:'🏠', label:'Home',                items:[{name:'Mortgage',amount:3800},{name:'Utilities',amount:400},{name:'Property Tax',amount:752},{name:'Home Insurance',amount:133}] },
   { id:'food',  icon:'🛒', label:'Food & Home Supplies', items:[{name:'Grocery',amount:650},{name:'Costco',amount:500},{name:'LCBO / Alcohol',amount:250},{name:'Others',amount:500}] },
@@ -653,12 +654,18 @@ let expEditMode = false;
 async function expLoad() {
   try {
     const d = STATE.settings;
-    if (d && d.expData && d.expData.length) expData = d.expData;
+    if (d && d.expData && d.expData.length && d.expVersion === EXP_VERSION) {
+      expData = d.expData;
+    } else if (d && d.expVersion !== EXP_VERSION) {
+      // New version — reset to updated defaults and auto-save
+      expData = JSON.parse(JSON.stringify(EXP_DEFAULT));
+      await fbSet('budget/settings', { expData, expVersion: EXP_VERSION });
+    }
   } catch(e) {}
 }
 async function expSave() {
   try {
-    await fbSet('budget/settings', { expData });
+    await fbSet('budget/settings', { expData, expVersion: EXP_VERSION });
     saved('exp-saved');
   } catch(e) { console.warn('expSave failed', e); }
 }
