@@ -635,14 +635,14 @@ function prToggle() { prExpanded = !prExpanded; prRender(); }
    MONTHLY EXPENSES
 ══════════════════════════════════════════════════════ */
 const EXP_DEFAULT = [
-  { id:'home',  icon:'🏠', label:'Home',                items:[{name:'Mortgage',amount:3800},{name:'Utilities',amount:400},{name:'Property Tax',amount:720},{name:'Home Insurance',amount:133}] },
-  { id:'food',  icon:'🛒', label:'Food & Home Supplies', items:[{name:'Grocery',amount:650},{name:'Costco',amount:250},{name:'Home Supplies',amount:250},{name:'Dining Out',amount:230}] },
-  { id:'auto',  icon:'🚗', label:'Auto',                items:[{name:'Auto Insurance',amount:385},{name:'Gas',amount:450},{name:'407 ETR',amount:150}] },
-  { id:'subs',  icon:'📺', label:'Subscriptions',       items:[{name:'Netflix',amount:24},{name:'Amazon Prime',amount:29},{name:'Gym (GoodLife)',amount:152},{name:'Home Security',amount:68},{name:'CAA',amount:20},{name:'IPTV',amount:30},{name:'Fubo',amount:17},{name:'Lottery',amount:20}] },
-  { id:'phone', icon:'📱', label:'Internet & Phone',    items:[{name:'Rogers (Internet & Home)',amount:113},{name:'Telus (Cell Phones)',amount:136}] },
-  { id:'kids',  icon:'👧', label:'Kids',                items:[{name:'Swimming',amount:100},{name:'Soccer',amount:74}] },
+  { id:'home',  icon:'🏠', label:'Home',                items:[{name:'Mortgage',amount:3800},{name:'Utilities',amount:400},{name:'Property Tax',amount:752},{name:'Home Insurance',amount:133}] },
+  { id:'food',  icon:'🛒', label:'Food & Home Supplies', items:[{name:'Grocery',amount:650},{name:'Costco',amount:500},{name:'LCBO / Alcohol',amount:250},{name:'Others',amount:500}] },
+  { id:'auto',  icon:'🚗', label:'Auto',                items:[{name:'Auto Insurance',amount:385},{name:'Gas',amount:650},{name:'407 ETR',amount:200},{name:'Car Maintenance',amount:150}] },
+  { id:'subs',  icon:'📱', label:'Subscriptions',       items:[{name:'Amazon Paramount + Photos',amount:20},{name:'Gym (GoodLife)',amount:151},{name:'CAA Membership',amount:21},{name:'IPTV',amount:30},{name:'DAZN',amount:40},{name:'Claude AI',amount:26}] },
+  { id:'phone', icon:'🌐', label:'Internet & Phone',    items:[{name:'Telus Cell Phones',amount:135},{name:'Telus Home Internet + bundles',amount:267}] },
+  { id:'kids',  icon:'👧', label:'Kids',                items:[{name:'Swimming',amount:1600},{name:'Soccer',amount:74},{name:'Piano',amount:210}] },
   { id:'invest',icon:'📈', label:'Investments',         items:[{name:'RESP',amount:580},{name:'BTC',amount:200},{name:'TFSA (Manny)',amount:1000},{name:'TFSA (Rani)',amount:0}] },
-  { id:'other', icon:'📦', label:'Others',              items:[{name:'House Cleaning',amount:200},{name:'Presto',amount:100},{name:'Life Insurance',amount:270},{name:'Gym (GoodLife)',amount:76},{name:'Enercare',amount:64},{name:'Claude AI',amount:27}] }
+  { id:'other', icon:'📦', label:'Others',              items:[{name:'Amazon Shopping',amount:850},{name:'House Cleaning',amount:180},{name:'Presto',amount:100},{name:'Personal Care',amount:300},{name:'Life Insurance',amount:270},{name:'Misc',amount:500}] }
 ];
 
 let expData     = JSON.parse(JSON.stringify(EXP_DEFAULT));
