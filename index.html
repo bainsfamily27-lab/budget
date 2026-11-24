@@ -1525,8 +1525,8 @@ const PT_EXP_MAP = {
   '0P000070AD.TO': { 'US Broad':    1.00 },
   '0P00007069.TO': { 'US Broad':    0.40, 'Canadian Eq': 0.30, 'Intl Equity': 0.10, 'CA Bonds':   0.20 },
   '0P0001OCCA.TO': { 'US Bonds':    0.40, 'Global Bonds':0.60 },
-  /* Manulife RPP (Rani) — based on fund statement breakdown */
-  'MANULIFE-RPP':  { 'CA Bonds':    0.2695, 'Canadian Eq': 0.1812, 'US Broad': 0.1756, 'Intl Equity': 0.2417, 'Emerging': 0.0888, 'Real Estate': 0.0432 },
+  /* Manulife RPP (Rani) — based on fund statement breakdown (real estate ~4% absorbed into Other) */
+  'MANULIFE-RPP':  { 'CA Bonds':    0.2695, 'Canadian Eq': 0.1812, 'US Broad': 0.1756, 'Intl Equity': 0.2417, 'Emerging': 0.0888 },
 };
 
 /* Bond sub-keys — rendered as ONE tile with internal breakdown */
@@ -1544,21 +1544,16 @@ const PT_EQUITY_DISPLAY = [
 ];
 
 const PT_EXP_CFG = [
-  { key:'EQUITIES',    label:'Equities',   flag:'📈', color:'#2563eb', isEquities:true },
-  { key:'Real Estate', label:'Real Estate',flag:'🏠',  color:'#16a34a' },
-  { key:'BONDS',       label:'Bonds',      flag:'🏦',  color:'#d97706', isBonds:true   },
-  { key:'Crypto',      label:'Crypto',     flag:'₿',   color:'#7c3aed' },
-  { key:'Other',       label:'Other',      flag:'📦',  color:'#888'    },
+  { key:'EQUITIES', label:'Equities', color:'#2563eb', isEquities:true },
+  { key:'BONDS',    label:'Bonds',    color:'#d97706', isBonds:true   },
+  { key:'Crypto',   label:'Crypto',   color:'#7c3aed', isCrypto:true  },
+  { key:'Other',    label:'Other',    color:'#888'                    },
 ];
 
 function ptCalcExposure() {
   const totals = {};
   ptAccts.forEach(acc => {
-    if (acc.group === 'real_estate') {
-      const eq = Math.max(0,(acc.propertyValue||0)-(acc.mortgageBalance||0));
-      if (eq > 0) totals['Real Estate'] = (totals['Real Estate']||0) + eq;
-      return;
-    }
+    if (acc.group === 'real_estate') return; /* tracked separately below */
     (acc.holdings||[]).forEach(h => {
       const val = ptHoldingVal(h);
       if (val <= 0) return;
@@ -1598,97 +1593,79 @@ function ptRenderExposure() {
     return vb - va;
   });
 
-  const tiles = rows.map(c => {
-    if (c.isEquities) {
-      /* ── equities tile with US vs Canada breakdown ── */
-      const eqTotal = ptEquityTotal(totals);
-      const eqPct   = (eqTotal / grandT * 100).toFixed(1);
-      const eqBarW  = Math.max(4, Math.round(eqTotal / grandT * 100));
-      const eqRows  = PT_EQUITY_DISPLAY
-        .map(d => {
-          const ev = d.keys.reduce((s,k)=>s+(totals[k]||0),0);
-          if (ev <= 0) return '';
-          const ep = (ev / eqTotal * 100).toFixed(0);
-          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;gap:4px;min-width:0;">
-            <span style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px;flex-shrink:0;">
-              <span style="width:6px;height:6px;border-radius:1px;background:${d.color};display:inline-block;flex-shrink:0;"></span>
-              ${d.label}
-            </span>
-            <span style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;">${fmtC(ev)} <span style="font-weight:400;color:var(--muted);">${ep}%</span></span>
-          </div>`;
-        }).join('');
-      return `
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;min-width:0;">
-          <div style="font-size:18px;margin-bottom:4px;">${c.flag}</div>
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.label}</div>
-          <div style="font-family:var(--fh);font-size:1rem;font-weight:800;color:var(--text);line-height:1;">${fmtC(eqTotal)}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px;">${eqPct}% of portfolio</div>
-          <div style="height:3px;background:rgba(0,0,0,0.08);border-radius:2px;margin-top:8px;margin-bottom:8px;overflow:hidden;">
-            <div style="height:100%;width:${eqBarW}%;background:${c.color};border-radius:2px;opacity:0.85;"></div>
-          </div>
-          <div style="border-top:0.5px solid var(--border);padding-top:7px;display:flex;flex-direction:column;gap:3px;min-width:0;">
-            ${eqRows}
-          </div>
-        </div>`;
-    }
+  /* ── helper: render a sub-row ── */
+  function expSubRow(label, val, ofTotal, color) {
+    const pct = (val / ofTotal * 100).toFixed(0);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;gap:4px;min-width:0;">
+      <span style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;flex-shrink:0;">
+        <span style="width:6px;height:6px;border-radius:1px;background:${color||'var(--muted)'};display:inline-block;flex-shrink:0;"></span>
+        ${label}
+      </span>
+      <span style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;">${fmtC(val)} <span style="font-weight:400;color:var(--muted);">${pct}%</span></span>
+    </div>`;
+  }
 
-    if (c.isBonds) {
-      /* ── special bonds tile with internal breakdown ── */
-      const bondTotal = ptBondTotal(totals);
-      const bondPct   = (bondTotal / grandT * 100).toFixed(1);
-      const bondBarW  = Math.max(4, Math.round(bondTotal / grandT * 100));
-      const splitRows = PT_BOND_KEYS
-        .filter(k => (totals[k]||0) > 0)
-        .map(k => {
-          const bv   = totals[k];
-          const bpct = (bv / bondTotal * 100).toFixed(0);
-          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;gap:4px;min-width:0;">
-            <span style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;">
-              <span style="width:6px;height:6px;border-radius:1px;background:${PT_BOND_COLORS[k]};display:inline-block;flex-shrink:0;"></span>
-              ${PT_BOND_FLAGS[k]}
-            </span>
-            <span style="font-size:11px;font-weight:600;color:var(--text);">${fmtC(bv)} <span style="font-weight:400;color:var(--muted);">${bpct}%</span></span>
-          </div>`;
-        }).join('');
-      return `
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;min-width:0;">
-          <div style="font-size:18px;margin-bottom:4px;">${c.flag}</div>
-          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.label}</div>
-          <div style="font-family:var(--fh);font-size:1rem;font-weight:800;color:var(--text);line-height:1;">${fmtC(bondTotal)}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px;">${bondPct}% of portfolio</div>
-          <div style="height:3px;background:rgba(0,0,0,0.08);border-radius:2px;margin-top:8px;margin-bottom:8px;overflow:hidden;">
-            <div style="height:100%;width:${bondBarW}%;background:${c.color};border-radius:2px;opacity:0.85;"></div>
-          </div>
-          <div style="border-top:0.5px solid var(--border);padding-top:7px;display:flex;flex-direction:column;gap:3px;min-width:0;">
-            ${splitRows}
-          </div>
-        </div>`;
-    }
-    /* ── standard tile ── */
-    const val  = totals[c.key];
-    const pct  = (val / grandT * 100).toFixed(1);
-    const barW = Math.max(4, Math.round(val / grandT * 100));
+  /* ── helper: tile shell ── */
+  function expTile(c, value, pct, subHtml, fullWidth) {
+    const barW = Math.max(2, Math.round(pct));
     return `
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;min-width:0;">
-        <div style="font-size:18px;margin-bottom:4px;">${c.flag}</div>
-        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:3px;">${c.label}</div>
-        <div style="font-family:var(--fh);font-size:1rem;font-weight:800;color:var(--text);line-height:1;">${fmtC(val)}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${pct}% of portfolio</div>
-        <div style="height:3px;background:rgba(0,0,0,0.08);border-radius:2px;margin-top:8px;overflow:hidden;">
-          <div style="height:100%;width:${barW}%;background:${c.color};border-radius:2px;opacity:0.85;"></div>
+      <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:13px 16px;min-width:0;${fullWidth?'':''}">
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;">
+          <span style="width:7px;height:7px;border-radius:50%;background:${c.color};display:inline-block;flex-shrink:0;"></span>
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);">${c.label}</span>
         </div>
+        <div style="font-family:var(--fh);font-size:17px;font-weight:800;color:var(--text);line-height:1;font-variant-numeric:tabular-nums;">${fmtC(value)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;margin-bottom:8px;">${pct.toFixed(1)}% of portfolio</div>
+        <div style="height:3px;background:var(--border2);border-radius:2px;margin-bottom:${subHtml?'9px':'0'};overflow:hidden;">
+          <div style="height:100%;width:${barW}%;background:${c.color};border-radius:2px;"></div>
+        </div>
+        ${subHtml ? `<div style="border-top:0.5px solid var(--border);padding-top:6px;display:flex;flex-direction:column;">${subHtml}</div>` : ''}
       </div>`;
+  }
+
+  const tileHtml = rows.map((c, i) => {
+    if (c.isEquities) {
+      const eqTotal = ptEquityTotal(totals);
+      const subHtml = PT_EQUITY_DISPLAY.map(d => {
+        const ev = d.keys.reduce((s,k)=>s+(totals[k]||0),0);
+        return ev > 0 ? expSubRow(d.label, ev, eqTotal, d.color) : '';
+      }).join('');
+      return expTile(c, eqTotal, eqTotal/grandT*100, subHtml);
+    }
+    if (c.isBonds) {
+      const bondTotal = ptBondTotal(totals);
+      const subHtml = PT_BOND_KEYS.filter(k=>(totals[k]||0)>0).map(k =>
+        expSubRow(PT_BOND_FLAGS[k], totals[k], bondTotal, PT_BOND_COLORS[k])
+      ).join('');
+      return expTile(c, bondTotal, bondTotal/grandT*100, subHtml);
+    }
+    if (c.isCrypto) {
+      /* crypto is full-width at the bottom, no sub-rows */
+      const val = totals[c.key]||0;
+      return `<div style="grid-column:1/-1;">
+        ${expTile(c, val, val/grandT*100, '')}
+      </div>`;
+    }
+    /* Other */
+    const val = totals[c.key]||0;
+    return expTile(c, val, val/grandT*100, '');
   }).join('');
 
   return `
     <div style="border-top:1px solid var(--border);">
-      <div style="padding:9px 20px;background:rgba(0,0,0,0.02);border-bottom:1px solid var(--border);
-        display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);">🌍 Market Exposure</span>
-        <span style="font-size:10px;color:var(--muted);">approx. based on fund mandates</span>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;
+        padding:10px 16px 10px 13px;background:var(--surface2);
+        border-left:3px solid var(--accent);border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-family:var(--fh);font-size:12px;font-weight:700;color:var(--text);letter-spacing:0.01em;">🌐 Market Exposure</div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-top:1px;">Approx. based on fund mandates</div>
+        </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:14px 16px;">
-        ${tiles}
+      <div style="display:grid;grid-template-columns:1fr 1fr;background:var(--border);gap:1px;">
+        ${tileHtml}
+      </div>
+      <div style="padding:7px 16px 9px;font-size:10px;color:var(--muted);border-top:1px solid var(--border);">
+        Real estate tracked separately below · RBC excluded (prices fetching)
       </div>
     </div>`;
 }
