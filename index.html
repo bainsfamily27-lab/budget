@@ -362,25 +362,25 @@ const PT_DEFAULT = [
     id:'cibc-tfsa-rani', group:'financial',
     accountType:'TFSA (Rani)', location:'CIBC',
     holdings:[
-      { ticker:'0P000070BP.TO', name:'CIBC Balanced Index Fund CL A', qty:413.487, qtyLabel:'units', manualPrice:0 }
+      { ticker:'0P000070BP.TO', name:'CIBC Balanced Index Fund CL A', qty:413.487, qtyLabel:'units', manualPrice:null }
     ]
   },
   {
     id:'cibc-resp', group:'financial',
     accountType:'RESP (Noor & Veer)', location:'CIBC',
     holdings:[
-      { ticker:'0P000070BP.TO', name:'CIBC Balanced Index Fund CL A',          qty:780.932,  qtyLabel:'units', manualPrice:0 },
-      { ticker:'0P000071B4.TO', name:'CIBC Nasdaq Index Fund CL A',             qty:174.738,  qtyLabel:'units', manualPrice:0 },
-      { ticker:'0P000071JF.TO', name:'CIBC U.S. Broad Market Index Fund CL A',  qty:124.736,  qtyLabel:'units', manualPrice:0 }
+      { ticker:'0P000070BP.TO', name:'CIBC Balanced Index Fund CL A',          qty:780.932,  qtyLabel:'units', manualPrice:null },
+      { ticker:'0P000071B4.TO', name:'CIBC Nasdaq Index Fund CL A',             qty:174.738,  qtyLabel:'units', manualPrice:null },
+      { ticker:'0P000071JF.TO', name:'CIBC U.S. Broad Market Index Fund CL A',  qty:124.736,  qtyLabel:'units', manualPrice:null }
     ]
   },
   {
     id:'rbc-rrsp-manny', group:'financial',
     accountType:'RRSP (Manny)', location:'RBC',
     holdings:[
-      { ticker:'0P000070AD.TO', name:'RBC U.S. Index Fund DZ',            qty:954.408,  qtyLabel:'units', manualPrice:0 },
-      { ticker:'0P00007069.TO', name:'RBC Select Growth Portfolio A',     qty:15.915,   qtyLabel:'units', manualPrice:0 },
-      { ticker:'0P0001OCCA.TO', name:'RBC Global Bond Index ETF Fund D',  qty:1244.128, qtyLabel:'units', manualPrice:0 }
+      { ticker:'0P000070AD.TO', name:'RBC U.S. Index Fund DZ',            qty:954.408,  qtyLabel:'units', manualPrice:null },
+      { ticker:'0P00007069.TO', name:'RBC Select Growth Portfolio A',     qty:15.915,   qtyLabel:'units', manualPrice:null },
+      { ticker:'0P0001OCCA.TO', name:'RBC Global Bond Index ETF Fund D',  qty:1244.128, qtyLabel:'units', manualPrice:null }
     ]
   },
   {
@@ -1423,7 +1423,7 @@ async function ptLoad() {
         }
       }
       // Enforce live tickers: BTC-CAD and XEQT.TO. Everything else is manual.
-      const PT_LIVE_TICKERS = ['BTC-CAD', 'XEQT.TO'];
+      const PT_LIVE_TICKERS = ['BTC-CAD', 'XEQT.TO', '0P000070BP.TO', '0P000071B4.TO', '0P000071JF.TO', '0P000070AD.TO', '0P00007069.TO', '0P0001OCCA.TO'];
       ptAccts.forEach(acc => {
         if (acc.holdings) {
           acc.holdings.forEach(h => {
