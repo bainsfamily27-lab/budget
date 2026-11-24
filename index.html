@@ -395,6 +395,7 @@ const PT_DEFAULT = [
     id:'woodstock', group:'real_estate',
     accountType:'Rental Property (1/3 share)', location:'Woodstock, ON',
     propertyValue:216667, mortgageBalance:169175,
+    purchasePrice:236667, downPayment:47333,
     rate:3.84, monthlyPayment:862, payoffDate:'Jan 2052',
     note:"Your 1/3 of $650K property · full mortgage $507,524"
   }
@@ -1321,6 +1322,7 @@ async function initPrimaryResidence() {
 let ptAccts    = JSON.parse(JSON.stringify(PT_DEFAULT));
 let ptExpanded = false;
 let ptEditMode = false;
+let reEditMode = false;
 let ptFetching = false;
 const ptCache  = {};   /* ticker → { price, name, ts } */
 const PT_TTL   = 300000;
@@ -1445,6 +1447,16 @@ async function ptLoad() {
               if (bv) h.bookValue = bv;
             }
           });
+        }
+      });
+      // Merge purchasePrice/downPayment from defaults for real estate (newly added fields)
+      ptAccts.forEach(acc => {
+        if (acc.group === 'real_estate') {
+          const def = PT_DEFAULT.find(d => d.id === acc.id);
+          if (def) {
+            if (!acc.purchasePrice && def.purchasePrice) acc.purchasePrice = def.purchasePrice;
+            if (!acc.downPayment   && def.downPayment)   acc.downPayment   = def.downPayment;
+          }
         }
       });
       // Load last updated timestamp
@@ -1656,7 +1668,7 @@ function ptRender() {
   const sy = window.scrollY;
   const finTotal = ptGroupTotal('financial');
   const reTotal  = ptGroupTotal('real_estate');
-  const grand    = finTotal + reTotal;
+  const grand    = finTotal;   /* real estate is its own section now */
   const E        = ptEditMode;
 
   /* ── total gain/loss vs book value ── */
@@ -1721,18 +1733,14 @@ function ptRender() {
       <div onclick="ptToggle()" style="flex:1;cursor:pointer;transition:background 0.15s;">
 
         <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--green);margin-bottom:3px;">
-          ${ptLastUpdated ? 'Total Investment Portfolio Value as of ' + ptLastUpdated : 'Total Investment Portfolio Value'}
+          ${ptLastUpdated ? 'Investment Portfolio as of ' + ptLastUpdated : 'Investment Portfolio'}
         </div>
         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:2px;">
-          <div style="font-family:var(--fh);font-size:1.8rem;font-weight:800;line-height:1;color:${grand>0?'var(--green)':'var(--muted)'};">
-            ${grand > 0 ? fmtC(grand) : '<span style="font-size:1.2rem;font-weight:400;">Loading…</span>'}
+          <div style="font-family:var(--fh);font-size:1.8rem;font-weight:800;line-height:1;color:${finTotal>0?'var(--green)':'var(--muted)'};">
+            ${finTotal > 0 ? fmtC(finTotal) : '<span style="font-size:1.2rem;font-weight:400;">Loading…</span>'}
           </div>
           ${todayBadge}
           ${totalGainBadge}
-        </div>
-        <div style="font-size:0.7rem;color:var(--muted);margin-top:5px;display:flex;gap:14px;flex-wrap:wrap;">
-          <span>📊 Investments <strong style="color:var(--text);">${fmtC(finTotal)}</strong></span>
-          <span>🏠 Real Estate <strong style="color:var(--text);">${fmtC(reTotal)}</strong></span>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
@@ -1988,28 +1996,7 @@ function ptRender() {
           class="btn btn-primary" style="width:100%;font-size:12px;padding:10px;border-radius:var(--r-sm);">+ Add Account</button>
         <div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px;">BTC-CAD &amp; XEQT.TO fetch live · all others use manual price</div>
       </div>` : ''}
-      <div class="pt-group-hdr" style="background:rgba(22,163,74,0.03);border-top:1px solid var(--border);">
-        <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);">🏠 Real Estate Equity</span>
-        <span style="font-family:var(--fh);font-size:0.9rem;font-weight:700;color:var(--text);">${fmtC(reTotal)}</span>
-      </div>
-      <div class="pt-col-hdr pt-re-grid">
-        <span>Property</span>
-        <span style="text-align:right;" class="pt-hide-sm">Your Value</span>
-        <span style="text-align:right;" class="pt-hide-sm">Mortgage</span>
-        <span style="text-align:right;color:var(--green);">Equity</span>
-      </div>
-      ${reRows}
       ${ptRenderExposure()}
-      <div class="pt-footer">
-        <div>
-          <div style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--green);margin-bottom:4px;">Total Wealth</div>
-          <div style="font-family:var(--fh);font-size:1.8rem;font-weight:800;color:var(--green);line-height:1;">${fmtC(grand)}</div>
-        </div>
-        <div style="font-size:12px;color:var(--green);text-align:right;line-height:2.2;">
-          <div>📊 Investments — <strong>${fmtC(finTotal)}</strong></div>
-          <div>🏠 Real Estate — <strong>${fmtC(reTotal)}</strong></div>
-        </div>
-      </div>
     </div>
   </div>`;
   window.scrollTo(0, sy);
@@ -2035,6 +2022,158 @@ async function ptDone() {
 }
 
 /* ══════════════════════════════════════════════════════
+   REAL ESTATE RENDER
+══════════════════════════════════════════════════════ */
+function reRender() {
+  const root = $('re-root');
+  if (!root) return;
+  const E = reEditMode;
+  const reAccts = ptAccts.filter(a => a.group === 'real_estate');
+  if (!reAccts.length) { root.innerHTML = ''; return; }
+
+  root.innerHTML = reAccts.map(acc => {
+    const ai           = ptAccts.indexOf(acc);
+    const equity       = Math.max(0, (acc.propertyValue||0) - (acc.mortgageBalance||0));
+    const pct          = acc.propertyValue > 0 ? Math.round(equity / acc.propertyValue * 100) : 0;
+    const purchasePrice = acc.purchasePrice || 0;
+    const downPayment  = acc.downPayment   || 0;
+    const valueDiff    = (acc.propertyValue||0) - purchasePrice;
+    const valueDiffPct = purchasePrice > 0 ? (valueDiff / purchasePrice * 100).toFixed(1) : 0;
+    const equityGain   = downPayment > 0 ? equity - downPayment : null;
+    const equityGainPct = downPayment > 0 ? (equityGain / downPayment * 100).toFixed(1) : null;
+
+    const editSection = E ? `
+      <div style="padding:16px 20px;border-top:1px solid var(--border);background:rgba(37,99,235,0.02);">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:12px;">Edit Values</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Current Value — Your Share ($)</div>
+            <input type="number" inputmode="decimal" value="${acc.propertyValue||''}" onfocus="this.select()"
+              oninput="ptAccts[${ai}].propertyValue=parseFloat(this.value)||0;reRender();" style="font-weight:700;font-family:var(--fh);">
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--red);font-weight:600;margin-bottom:3px;">Mortgage Balance — Your Share ($)</div>
+            <input type="number" inputmode="decimal" value="${acc.mortgageBalance||''}" onfocus="this.select()"
+              oninput="ptAccts[${ai}].mortgageBalance=parseFloat(this.value)||0;reRender();" style="font-weight:700;color:var(--red);font-family:var(--fh);">
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Purchase Price — Your Share ($)</div>
+            <input type="number" inputmode="decimal" value="${acc.purchasePrice||''}" onfocus="this.select()"
+              oninput="ptAccts[${ai}].purchasePrice=parseFloat(this.value)||0;reRender();">
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Down Payment — Your Share ($)</div>
+            <input type="number" inputmode="decimal" value="${acc.downPayment||''}" onfocus="this.select()"
+              oninput="ptAccts[${ai}].downPayment=parseFloat(this.value)||0;reRender();">
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Rate (%)</div>
+            <input type="number" inputmode="decimal" step="0.01" value="${acc.rate||''}" onfocus="this.select()"
+              oninput="ptAccts[${ai}].rate=parseFloat(this.value)||0;" style="color:var(--accent);">
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Monthly Payment ($)</div>
+            <input type="number" inputmode="decimal" value="${acc.monthlyPayment||''}" onfocus="this.select()"
+              oninput="ptAccts[${ai}].monthlyPayment=parseFloat(this.value)||0;" style="color:var(--accent);">
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Payoff Date</div>
+          <input type="text" value="${san(acc.payoffDate||'')}" oninput="ptAccts[${ai}].payoffDate=this.value;" style="color:var(--accent);">
+        </div>
+      </div>` : '';
+
+    return `<div class="card">
+      <!-- Header -->
+      <div style="padding:16px 20px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);">
+        <div>
+          <div style="font-family:var(--fh);font-size:15px;font-weight:700;color:var(--text);">🏠 ${san(acc.accountType)}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">${san(acc.location)}</div>
+        </div>
+        ${purchasePrice && valueDiff !== 0 ? `
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+          <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;
+            color:${valueDiff>=0?'var(--green)':'var(--red)'};
+            background:${valueDiff>=0?'var(--green-dim)':'var(--red-dim)'};">
+            ${valueDiff>=0?'▲ +':'▼ '}${fmtC(Math.abs(valueDiff))} (${valueDiff>=0?'+':''}${valueDiffPct}%)
+          </span>
+          <span style="font-size:10px;color:var(--muted);">vs. purchase price</span>
+        </div>` : ''}
+      </div>
+
+      <!-- Balance sheet -->
+      <div style="padding:14px 20px;display:flex;flex-direction:column;gap:9px;border-bottom:1px solid var(--border);">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+          <span style="font-size:13px;color:var(--muted);">Current value <span style="font-size:11px;">(your 1/3)</span></span>
+          <span style="font-family:var(--fh);font-weight:700;color:var(--text);">${fmtC(acc.propertyValue||0)}</span>
+        </div>
+        ${purchasePrice ? `
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+          <span style="font-size:12px;color:var(--muted);">Purchase price <span style="font-size:11px;">($710K÷3)</span></span>
+          <span style="font-size:13px;color:var(--muted);font-weight:500;">${fmtC(purchasePrice)}</span>
+        </div>` : ''}
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+          <span style="font-size:13px;color:var(--red);">Mortgage balance</span>
+          <span style="font-family:var(--fh);font-weight:700;color:var(--red);">−${fmtC(acc.mortgageBalance||0)}</span>
+        </div>
+      </div>
+
+      <!-- Equity + gain -->
+      <div style="padding:14px 20px;display:flex;flex-direction:column;gap:10px;">
+        <div style="background:var(--green-dim);border:1px solid rgba(22,163,74,0.2);border-radius:var(--r-sm);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--green);margin-bottom:3px;">Current Equity</div>
+            <div style="font-family:var(--fh);font-size:1.4rem;font-weight:800;color:var(--green);line-height:1;">${fmtC(equity)}</div>
+          </div>
+          <div style="font-size:11px;color:var(--green);font-weight:600;">${pct}% owned</div>
+        </div>
+        ${downPayment > 0 && equityGain !== null ? `
+        <div style="background:${equityGain>=0?'rgba(37,99,235,0.05)':'var(--red-dim)'};border:1px solid ${equityGain>=0?'rgba(37,99,235,0.2)':'rgba(220,38,38,0.2)'};border-radius:var(--r-sm);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text);">Equity gain</div>
+            <div style="font-size:11px;color:var(--muted);">vs. down payment of ${fmtC(downPayment)}</div>
+          </div>
+          <div style="text-align:right;white-space:nowrap;">
+            <div style="font-family:var(--fh);font-size:1.1rem;font-weight:800;color:${equityGain>=0?'var(--green)':'var(--red)'};">${equityGain>=0?'+':''}${fmtC(equityGain)}</div>
+            <div style="font-size:11px;color:var(--muted);">${equityGain>=0?'+':''}${equityGainPct}%${Math.abs(equityGain)<2000?' 🤞':''}</div>
+          </div>
+        </div>` : ''}
+      </div>
+
+      <!-- LTV bar -->
+      <div style="padding:0 20px 14px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:5px;">
+          <span>Equity ${pct}%</span><span>Mortgage ${100-pct}%</span>
+        </div>
+        <div style="height:5px;background:var(--surface2);border-radius:10px;overflow:hidden;border:1px solid var(--border);">
+          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--green),var(--accent));border-radius:10px;"></div>
+        </div>
+      </div>
+
+      <!-- Mortgage footer -->
+      <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          ${acc.rate         ? `<span style="font-size:12px;color:var(--muted);">Rate <strong style="color:var(--accent);">${acc.rate}%</strong></span>` : ''}
+          ${acc.monthlyPayment ? `<span style="font-size:12px;color:var(--muted);">Monthly <strong style="color:var(--accent);">${fmtC(acc.monthlyPayment)}</strong></span>` : ''}
+          ${acc.payoffDate   ? `<span style="font-size:12px;color:var(--muted);">Payoff <strong style="color:var(--accent);">${san(acc.payoffDate)}</strong></span>` : ''}
+        </div>
+        ${E
+          ? `<button onclick="reDone()" class="btn btn-success" style="font-size:0.72rem;padding:6px 14px;">✓ Save</button>`
+          : `<button onclick="requirePwd(()=>{reEditMode=true;reRender();})" class="btn" style="font-size:0.72rem;padding:6px 14px;">✎ Edit</button>`
+        }
+      </div>
+      ${editSection}
+    </div>`;
+  }).join('');
+}
+
+async function reDone() {
+  reEditMode = false;
+  reRender();
+  await ptSave();
+}
+
+/* ══════════════════════════════════════════════════════
    BOOT
 ══════════════════════════════════════════════════════ */
 async function init() {
@@ -2046,13 +2185,18 @@ async function init() {
       <div class="sec-label">Investment Portfolio</div>
       <div id="pt-root"></div>
     </div>
+    <div class="section-wrap">
+      <div class="sec-label">Real Estate</div>
+      <div id="re-root"></div>
+    </div>
     <div id="sections-root"></div>`;
 
   /* load saved portfolio accounts */
   await ptLoad();
 
-  /* render immediately (shows manual values + real estate right away) */
+  /* render immediately (shows manual values right away) */
   ptRender();
+  reRender();
 
   /* fetch live prices in background → re-render */
   ptFetchLive().then(() => ptRender());
