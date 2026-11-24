@@ -1085,7 +1085,7 @@ function respRender() {
     + '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">'
     + '<div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">Total Value</div>'
     + '<div style="font-family:var(--fh);font-size:1rem;font-weight:800;color:var(--green);">' + (totalBal > 0 ? fmtC(totalBal) : '—') + '</div>'
-    + '<div style="font-size:10px;color:var(--muted);margin-top:3px;">From Investment Portfolio</div>'
+    + '<div style="font-size:10px;color:var(--muted);margin-top:3px;">From Investment Accounts</div>'
     + '</div>'
     + '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;">'
     + '<div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">Growth Rate</div>'
@@ -1776,7 +1776,7 @@ function ptRender() {
         padding:12px 18px 11px;border-left:3px solid var(--accent);background:var(--surface2);
         border-bottom:1px solid var(--border);">
         <div onclick="ptToggle()" style="flex:1;cursor:pointer;">
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);margin-bottom:1px;">Investment Portfolio</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);margin-bottom:1px;">Investment Accounts</div>
           <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">As of ${todayStr}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
@@ -2264,7 +2264,7 @@ async function init() {
   /* render shell */
   $('app').innerHTML = `
     <div class="section-wrap">
-      <div class="sec-label">Investment Portfolio</div>
+      <div class="sec-label">Investment Accounts</div>
       <div id="pt-root"></div>
     </div>
     <div class="section-wrap">
