@@ -446,12 +446,12 @@ const PT_DEFAULT = [
 ══════════════════════════════════════════════════════ */
 const PR_DEFAULT = {
   value:        1100000,
-  mortgage:     302562.68,
-  rate:         3.93,
-  payment:      3800,
-  paymentDay:   15,
-  maturity:     'Jul 2028',
-  renewRate:    3.93,
+  mortgage:     500642.11,
+  rate:         3.84,
+  payment:      2585.08,
+  paymentDay:   20,
+  maturity:     'Nov 2028',
+  renewRate:    3.84,
   address:      'Ajax, ON'
 };
 let prData     = JSON.parse(JSON.stringify(PR_DEFAULT));
@@ -462,6 +462,16 @@ async function prLoad() {
   try {
     const d = STATE.settings;
     if (d && d.prData) prData = { ...PR_DEFAULT, ...d.prData };
+    // Nov 2026: update stale Firebase values if they still match old defaults
+    if (Math.abs(prData.mortgage - 302562.68) < 1 || Math.abs(prData.payment - 3800) < 1) {
+      prData.mortgage   = PR_DEFAULT.mortgage;
+      prData.rate       = PR_DEFAULT.rate;
+      prData.payment    = PR_DEFAULT.payment;
+      prData.paymentDay = PR_DEFAULT.paymentDay;
+      prData.maturity   = PR_DEFAULT.maturity;
+      prData.renewRate  = PR_DEFAULT.renewRate;
+      await prSave();
+    }
   } catch(e) {}
 }
 
