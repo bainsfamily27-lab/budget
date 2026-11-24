@@ -1501,18 +1501,16 @@ async function ptLoad() {
     const d = STATE.settings;
     if (d && d.ptAccounts && d.ptAccounts.length && d.ptAccounts.some(a => a.group)) {
       ptAccts = d.ptAccounts;
-      // Ensure real estate entry always exists, and always sync its values from PT_DEFAULT
-      // (PT_DEFAULT is the source of truth for RE property figures)
+      // Ensure real estate entry always exists (Firebase is source of truth for user-edited values)
+      if (!ptAccts.some(a => a.group === 'real_estate')) {
+        const re = PT_DEFAULT.find(a => a.group === 'real_estate');
+        if (re) ptAccts.push(JSON.parse(JSON.stringify(re)));
+      }
+      // Backfill additionalInvestment only if not yet in Firebase (new field added Nov 2026)
+      const reIdx = ptAccts.findIndex(a => a.group === 'real_estate');
       const reDefault = PT_DEFAULT.find(a => a.group === 'real_estate');
-      if (reDefault) {
-        const reIdx = ptAccts.findIndex(a => a.group === 'real_estate');
-        const syncFields = ['propertyValue','mortgageBalance','downPayment','additionalInvestment',
-                            'purchasePrice','rate','monthlyPayment','payoffDate','accountType','location'];
-        if (reIdx >= 0) {
-          syncFields.forEach(f => { if (reDefault[f] !== undefined) ptAccts[reIdx][f] = reDefault[f]; });
-        } else {
-          ptAccts.push(JSON.parse(JSON.stringify(reDefault)));
-        }
+      if (reIdx >= 0 && reDefault && ptAccts[reIdx].additionalInvestment === undefined) {
+        ptAccts[reIdx].additionalInvestment = reDefault.additionalInvestment || 0;
       }
       // Ensure RPP (Rani) account exists (added after initial save)
       if (!ptAccts.some(a => a.id === 'manulife-rpp-rani')) {
@@ -2102,7 +2100,7 @@ function ptRender() {
   const ptDetailsRow = `
     <div style="border-top:1px solid var(--border);padding:9px 16px;
         display:flex;align-items:center;justify-content:space-between;">
-      <div onclick="ptDetailsToggle()" style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;">
+      <div onclick="${E ? '' : 'ptDetailsToggle()'}" style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;">
         <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">Details</span>
         <span style="font-size:0.9rem;color:var(--muted);display:inline-block;
             transform:rotate(${ptDetailsExpanded?180:0}deg);transition:transform 0.25s;">▾</span>
@@ -2148,7 +2146,7 @@ function ptRender() {
 /* ══════════════════════════════════════════════════════
    ACTIONS
 ══════════════════════════════════════════════════════ */
-function ptDetailsToggle() { ptDetailsExpanded = !ptDetailsExpanded; ptRender(); }
+function ptDetailsToggle() { if (ptEditMode) return; ptDetailsExpanded = !ptDetailsExpanded; ptRender(); }
 
 async function ptRefresh(btn) {
   if (btn) { btn.textContent='…'; btn.disabled=true; }
@@ -2167,7 +2165,7 @@ async function ptDone() {
 /* ══════════════════════════════════════════════════════
    REAL ESTATE RENDER
 ══════════════════════════════════════════════════════ */
-function reDetailsToggle() { reDetailsExpanded = !reDetailsExpanded; reRender(); }
+function reDetailsToggle() { if (reEditMode) return; reDetailsExpanded = !reDetailsExpanded; reRender(); }
 
 function reRender() {
   const root = $('re-root');
@@ -2324,11 +2322,6 @@ function reRender() {
               ${roiPos?'+':''}${roiPct}%</span>`:''}
           </div>
         </div>
-        ${totalAdditional > 0 ? `<div style="display:flex;align-items:center;justify-content:space-between;
-            background:var(--surface2);border-radius:10px;padding:7px 12px;">
-          <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">Additional Investment</span>
-          <span style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);">${fmtC(totalAdditional)}</span>
-        </div>` : ''}
         <div style="font-size:10px;color:var(--muted);text-align:right;padding-right:4px;">
           Total Investment: ${fmtC(totalInvested)} (${fmtC(totalDown)} down payment${totalAdditional > 0 ? ` + ${fmtC(totalAdditional)} other expenses` : ''})
         </div>
@@ -2338,7 +2331,7 @@ function reRender() {
     <!-- Details toggle row — always visible -->
     <div style="border-top:1px solid var(--border);padding:9px 16px;
         display:flex;align-items:center;justify-content:space-between;">
-      <div onclick="reDetailsToggle()" style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;">
+      <div onclick="${E ? '' : 'reDetailsToggle()'}" style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;">
         <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">Details</span>
         <span style="font-size:0.9rem;color:var(--muted);display:inline-block;
             transform:rotate(${reDetailsExpanded?180:0}deg);transition:transform 0.25s;">▾</span>
@@ -2386,10 +2379,10 @@ async function init() {
   reRender();
 
   /* fetch live prices in background → re-render (also refresh RESP total which reads ptAccts) */
-  ptFetchLive().then(() => { ptRender(); respRender(); });
+  ptFetchLive().then(() => { if (!ptEditMode && !reEditMode) ptRender(); respRender(); });
 
   /* auto-refresh live prices every 5 minutes while page is open */
-  setInterval(() => { ptFetchLive().then(() => { ptRender(); respRender(); }); }, 300000);
+  setInterval(() => { ptFetchLive().then(() => { if (!ptEditMode && !reEditMode) ptRender(); respRender(); }); }, 300000);
 
   /* Primary Residence */
   await initPrimaryResidence();
