@@ -2373,11 +2373,11 @@ async function init() {
   ptRender();
   reRender();
 
-  /* fetch live prices in background → re-render */
-  ptFetchLive().then(() => ptRender());
+  /* fetch live prices in background → re-render (also refresh RESP total which reads ptAccts) */
+  ptFetchLive().then(() => { ptRender(); respRender(); });
 
   /* auto-refresh live prices every 5 minutes while page is open */
-  setInterval(() => { ptFetchLive().then(() => ptRender()); }, 300000);
+  setInterval(() => { ptFetchLive().then(() => { ptRender(); respRender(); }); }, 300000);
 
   /* Primary Residence */
   await initPrimaryResidence();
