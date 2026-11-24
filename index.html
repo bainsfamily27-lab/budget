@@ -1833,6 +1833,12 @@ function ptRender() {
       const priceStr = isLive
         ? (liveP ? fmtC2(liveP.price) + ' CAD' : '—')
         : (h.manualPrice > 0 ? fmtC2(h.manualPrice) + '/unit' : 'enter price');
+      const bv       = h.bookValue || 0;
+      const gain     = bv > 0 && val > 0 ? val - bv : null;
+      const gainPct  = gain !== null && bv > 0 ? (gain / bv * 100) : null;
+      const gainStr  = gain !== null
+        ? `<div style="font-size:11px;font-weight:600;color:${gain>=0?'var(--green)':'var(--red)'};">${gain>=0?'+':''}${fmtC(gain)} (${gainPct>=0?'+':''}${gainPct.toFixed(1)}%)</div>`
+        : '';
       return `
         <div class="pt-row-fin"
           style="grid-template-columns:1.2fr 1.6fr 0.9fr 0.9fr 1fr;padding:${isFirst?'12px':'6px'} 20px;">
@@ -1857,6 +1863,7 @@ function ptRender() {
             <div class="pt-val" style="color:${val>0?'var(--green)':h.manualPrice===0?'var(--amber)':'var(--muted)'};">
               ${val>0 ? fmtC(val) : h.manualPrice===0&&h.qty>0 ? '<span style="font-size:11px;color:var(--amber);font-weight:500;">enter price ✎</span>' : '—'}
             </div>
+            ${gainStr}
           </div>
         </div>`;
     }).join('');
