@@ -2099,9 +2099,11 @@ function ptRender() {
         <span style="font-size:0.9rem;color:var(--muted);display:inline-block;
             transform:rotate(${ptDetailsExpanded?180:0}deg);transition:transform 0.25s;">▾</span>
       </div>
-      ${E
-        ? `<button onclick="ptDone()" class="btn btn-success" style="padding:5px 12px;font-size:0.72rem;flex-shrink:0;">✓ Save</button>`
-        : `<button onclick="event.stopPropagation();requirePwd(()=>{ptEditMode=true;ptDetailsExpanded=true;ptRender();})" class="btn" style="padding:5px 12px;font-size:0.72rem;flex-shrink:0;">✎ Edit</button>`
+      ${(ptDetailsExpanded || E)
+        ? (E
+          ? `<button onclick="ptDone()" class="btn btn-success" style="padding:5px 12px;font-size:0.72rem;flex-shrink:0;">✓ Save</button>`
+          : `<button onclick="event.stopPropagation();requirePwd(()=>{ptEditMode=true;ptDetailsExpanded=true;ptRender();})" class="btn" style="padding:5px 12px;font-size:0.72rem;flex-shrink:0;">✎ Edit</button>`)
+        : ''
       }
     </div>`;
 
@@ -2333,9 +2335,11 @@ function reRender() {
         <span style="font-size:0.9rem;color:var(--muted);display:inline-block;
             transform:rotate(${reDetailsExpanded?180:0}deg);transition:transform 0.25s;">▾</span>
       </div>
-      ${E
-        ? `<button onclick="reDone()" class="btn btn-success" style="font-size:0.72rem;padding:5px 12px;">✓ Save</button>`
-        : `<button onclick="event.stopPropagation();requirePwd(()=>{reEditMode=true;reDetailsExpanded=true;reRender();})" class="btn" style="font-size:0.72rem;padding:5px 12px;">✎ Edit</button>`
+      ${(reDetailsExpanded || E)
+        ? (E
+          ? `<button onclick="reDone()" class="btn btn-success" style="font-size:0.72rem;padding:5px 12px;">✓ Save</button>`
+          : `<button onclick="event.stopPropagation();requirePwd(()=>{reEditMode=true;reDetailsExpanded=true;reRender();})" class="btn" style="font-size:0.72rem;padding:5px 12px;">✎ Edit</button>`)
+        : ''
       }
     </div>
 
