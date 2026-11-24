@@ -2303,22 +2303,22 @@ function reRender() {
 
     ${reExpanded ? `<div style="animation:fadeIn 0.2s ease;">
 
-      <!-- Summary body: main equity number + ROI badge -->
-      <div style="padding:16px 18px 18px;">
+      <!-- Summary body: main equity number + ROI row -->
+      <div onclick="reToggle()" style="padding:14px 18px 16px;cursor:pointer;">
         <div style="font-family:var(--fh);font-size:2rem;font-weight:800;line-height:1;
             font-variant-numeric:tabular-nums;margin-bottom:12px;
             color:${totalEquity>0?'var(--green)':'var(--red)'};">${fmtC(totalEquity)}</div>
         <div style="display:flex;flex-direction:column;gap:7px;">
           <div style="display:flex;align-items:center;justify-content:space-between;
-              background:var(--surface2);border-radius:10px;padding:8px 12px;">
-            <span style="font-size:11px;font-weight:600;color:var(--muted);
-                text-transform:uppercase;letter-spacing:0.06em;">Return on Investment</span>
+              background:var(--surface2);border-radius:10px;padding:7px 12px;">
+            <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">Return on Investment</span>
             <div style="display:flex;align-items:center;gap:6px;font-family:var(--fh);
                 font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;
                 color:${roiPos?'var(--green)':'var(--red)'};">
               <span>${roiPos?'+':''}${fmtC(roiGain)}</span>
               ${roiPct!==null?`<span style="display:inline-flex;align-items:center;padding:2px 8px;
                   border-radius:20px;font-size:11px;font-weight:700;
+                  color:${roiPos?'var(--green)':'var(--red)'};
                   background:${roiPos?'rgba(22,163,74,0.10)':'rgba(220,38,38,0.10)'};">
                 ${roiPos?'+':''}${roiPct}%</span>`:''}
             </div>
