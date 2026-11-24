@@ -1501,10 +1501,18 @@ async function ptLoad() {
     const d = STATE.settings;
     if (d && d.ptAccounts && d.ptAccounts.length && d.ptAccounts.some(a => a.group)) {
       ptAccts = d.ptAccounts;
-      // Ensure real estate entry always exists
-      if (!ptAccts.some(a => a.group === 'real_estate')) {
-        const re = PT_DEFAULT.find(a => a.group === 'real_estate');
-        if (re) ptAccts.push(JSON.parse(JSON.stringify(re)));
+      // Ensure real estate entry always exists, and always sync its values from PT_DEFAULT
+      // (PT_DEFAULT is the source of truth for RE property figures)
+      const reDefault = PT_DEFAULT.find(a => a.group === 'real_estate');
+      if (reDefault) {
+        const reIdx = ptAccts.findIndex(a => a.group === 'real_estate');
+        const syncFields = ['propertyValue','mortgageBalance','downPayment','additionalInvestment',
+                            'purchasePrice','rate','monthlyPayment','payoffDate','accountType','location'];
+        if (reIdx >= 0) {
+          syncFields.forEach(f => { if (reDefault[f] !== undefined) ptAccts[reIdx][f] = reDefault[f]; });
+        } else {
+          ptAccts.push(JSON.parse(JSON.stringify(reDefault)));
+        }
       }
       // Ensure RPP (Rani) account exists (added after initial save)
       if (!ptAccts.some(a => a.id === 'manulife-rpp-rani')) {
@@ -2322,7 +2330,7 @@ function reRender() {
           <span style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);">${fmtC(totalAdditional)}</span>
         </div>` : ''}
         <div style="font-size:10px;color:var(--muted);text-align:right;padding-right:4px;">
-          vs. ${fmtC(totalInvested)} total invested (${fmtC(totalDown)} down payment${totalAdditional > 0 ? ` + ${fmtC(totalAdditional)} other expenses` : ''})
+          Total Investment: ${fmtC(totalInvested)} (${fmtC(totalDown)} down payment${totalAdditional > 0 ? ` + ${fmtC(totalAdditional)} other expenses` : ''})
         </div>
       </div>
     </div>
