@@ -1412,13 +1412,24 @@ async function ptFetchLive() {
     console.log('✅ Live prices:', Object.keys(j.prices || {}).length, 'tickers');
   } catch(e) {
     console.warn('JSONP failed:', e.message);
-    /* BTC direct fallback */
+    /* BTC direct fallback — price from Coinbase, prevClose from CryptoCompare */
     if (stale.includes('BTC-CAD')) {
       try {
-        const r = await fetch('https://api.coinbase.com/v2/prices/BTC-CAD/spot');
-        const p = parseFloat((await r.json()).data.amount);
-        if (p > 0) ptCache['BTC-CAD'] = { price:p, currency:'CAD', name:'Bitcoin', ts:Date.now() };
-      } catch(e2) {}
+        const [spotR, histR] = await Promise.all([
+          fetch('https://api.coinbase.com/v2/prices/BTC-CAD/spot'),
+          fetch('https://min-api.cryptocompare.com/data/v2/histoday?fsym=BTC&tsym=CAD&limit=1')
+        ]);
+        const price = parseFloat((await spotR.json()).data.amount);
+        const hist  = await histR.json();
+        const prevClose = hist?.Data?.Data?.[0]?.close || 0;
+        if (price > 0) ptCache['BTC-CAD'] = { price, prevClose: prevClose || undefined, currency:'CAD', name:'Bitcoin', ts:Date.now() };
+      } catch(e2) {
+        try {
+          const r = await fetch('https://api.coinbase.com/v2/prices/BTC-CAD/spot');
+          const p = parseFloat((await r.json()).data.amount);
+          if (p > 0) ptCache['BTC-CAD'] = { price:p, currency:'CAD', name:'Bitcoin', ts:Date.now() };
+        } catch(e3) {}
+      }
     }
   }
   ptFetching = false;
@@ -1757,9 +1768,7 @@ function ptRender() {
                  background:${liveDollarChange>=0?'rgba(22,163,74,0.10)':'rgba(220,38,38,0.10)'};
                  color:${liveDollarChange>=0?'var(--green)':'var(--red)'};">
                  ${liveDollarChange>=0?'+':''}${finTotal>0?(liveDollarChange/finTotal*100).toFixed(2):'0.00'}%</span>`
-            : `<span style="color:var(--muted);">+$0</span>
-               <span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;
-                 background:var(--surface2);color:var(--muted);border:1px solid var(--border2);">+0.00%</span>`
+            : `<span style="color:var(--muted);font-size:12px;">—</span>`
           }
         </div>
       </div>`
@@ -1767,7 +1776,7 @@ function ptRender() {
   const allTimeRowHtml = bookHasData
     ? `<div style="display:flex;align-items:center;justify-content:space-between;
         background:var(--surface2);border-radius:10px;padding:7px 12px;">
-        <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">All-time gain</span>
+        <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">All-time return</span>
         <div style="display:flex;align-items:center;gap:6px;font-family:var(--fh);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;
           color:${totalBookGain>=0?'var(--green)':'var(--red)'};">
           <span>${totalBookGain>=0?'+':''}${fmtC(totalBookGain)}</span>
