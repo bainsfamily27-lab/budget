@@ -355,32 +355,32 @@ const PT_DEFAULT = [
     id:'td-tfsa-manny', group:'financial',
     accountType:'TFSA (Manny)', location:'TD',
     holdings:[
-      { ticker:'XEQT.TO', name:'iShares Core Equity ETF', qty:256, qtyLabel:'shares', manualPrice:null }
+      { ticker:'XEQT.TO', name:'iShares Core Equity ETF', qty:256, qtyLabel:'shares', manualPrice:null, bookValue:11137 }
     ]
   },
   {
     id:'cibc-tfsa-rani', group:'financial',
     accountType:'TFSA (Rani)', location:'CIBC',
     holdings:[
-      { ticker:'0P000070BP.TO', name:'CIBC Balanced Index Fund CL A', qty:413.487, qtyLabel:'units', manualPrice:null }
+      { ticker:'0P000070BP.TO', name:'CIBC Balanced Index Fund CL A', qty:413.487, qtyLabel:'units', manualPrice:null, bookValue:7527.71 }
     ]
   },
   {
     id:'cibc-resp', group:'financial',
     accountType:'RESP (Noor & Veer)', location:'CIBC',
     holdings:[
-      { ticker:'0P000070BP.TO', name:'CIBC Balanced Index Fund CL A',          qty:780.932,  qtyLabel:'units', manualPrice:null },
-      { ticker:'0P000071B4.TO', name:'CIBC Nasdaq Index Fund CL A',             qty:174.738,  qtyLabel:'units', manualPrice:null },
-      { ticker:'0P000071JF.TO', name:'CIBC U.S. Broad Market Index Fund CL A',  qty:124.736,  qtyLabel:'units', manualPrice:null }
+      { ticker:'0P000070BP.TO', name:'CIBC Balanced Index Fund CL A',          qty:780.932,  qtyLabel:'units', manualPrice:null, bookValue:16091.01 },
+      { ticker:'0P000071B4.TO', name:'CIBC Nasdaq Index Fund CL A',             qty:174.738,  qtyLabel:'units', manualPrice:null, bookValue:9000.00 },
+      { ticker:'0P000071JF.TO', name:'CIBC U.S. Broad Market Index Fund CL A',  qty:124.736,  qtyLabel:'units', manualPrice:null, bookValue:12258.35 }
     ]
   },
   {
     id:'rbc-rrsp-manny', group:'financial',
     accountType:'RRSP (Manny)', location:'RBC',
     holdings:[
-      { ticker:'0P000070AD.TO', name:'RBC U.S. Index Fund DZ',            qty:954.408,  qtyLabel:'units', manualPrice:null },
-      { ticker:'0P00007069.TO', name:'RBC Select Growth Portfolio A',     qty:15.915,   qtyLabel:'units', manualPrice:null },
-      { ticker:'0P0001OCCA.TO', name:'RBC Global Bond Index ETF Fund D',  qty:1244.128, qtyLabel:'units', manualPrice:null }
+      { ticker:'0P000070AD.TO', name:'RBC U.S. Index Fund DZ',            qty:954.408,  qtyLabel:'units', manualPrice:null, bookValue:46298.94 },
+      { ticker:'0P00007069.TO', name:'RBC Select Growth Portfolio A',     qty:15.915,   qtyLabel:'units', manualPrice:null, bookValue:573.18 },
+      { ticker:'0P0001OCCA.TO', name:'RBC Global Bond Index ETF Fund D',  qty:1244.128, qtyLabel:'units', manualPrice:null, bookValue:12046.09 }
     ]
   },
   {
@@ -1647,6 +1647,34 @@ function ptRender() {
   const grand    = finTotal + reTotal;
   const E        = ptEditMode;
 
+  /* ── total gain/loss vs book value ── */
+  let totalBookValue = 0;
+  let totalBookGain = 0;
+  let bookHasData = false;
+  ptAccts.filter(a => a.group === 'financial').forEach(acc => {
+    acc.holdings.forEach(h => {
+      if (!h.bookValue) return;
+      const c = ptCache[h.ticker];
+      const price = h.manualPrice !== null ? h.manualPrice : (c ? c.price : 0);
+      if (!price || !h.qty) return;
+      const currentVal = price * h.qty;
+      totalBookValue += h.bookValue;
+      totalBookGain  += currentVal - h.bookValue;
+      bookHasData = true;
+    });
+  });
+  const bookGainColor = totalBookGain >= 0 ? 'var(--green)' : 'var(--red)';
+  const bookGainSign  = totalBookGain >= 0 ? '+' : '';
+  const bookGainPct   = totalBookValue > 0 ? ' (' + bookGainSign + (totalBookGain / totalBookValue * 100).toFixed(1) + '%)' : '';
+  const totalGainBadge = bookHasData
+    ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;
+        color:${bookGainColor};background:${totalBookGain>=0?'rgba(22,163,74,0.08)':'rgba(220,38,38,0.08)'};
+        border:1px solid ${totalBookGain>=0?'rgba(22,163,74,0.2)':'rgba(220,38,38,0.2)'};
+        border-radius:20px;padding:2px 10px;margin-left:4px;">
+        ${totalBookGain >= 0 ? '▲' : '▼'} ${bookGainSign}${fmtC(Math.abs(totalBookGain))}${bookGainPct} all-time
+      </span>`
+    : '';
+
   /* ── today's change calculation (live holdings only) ── */
   let liveDollarChange = 0;
   let liveChangeHasData = false;
@@ -1688,6 +1716,7 @@ function ptRender() {
             ${grand > 0 ? fmtC(grand) : '<span style="font-size:1.2rem;font-weight:400;">Loading…</span>'}
           </div>
           ${todayBadge}
+          ${totalGainBadge}
         </div>
         <div style="font-size:0.7rem;color:var(--muted);margin-top:5px;display:flex;gap:14px;flex-wrap:wrap;">
           <span>📊 Investments <strong style="color:var(--text);">${fmtC(finTotal)}</strong></span>
