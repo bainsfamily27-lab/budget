@@ -1387,6 +1387,33 @@ function ptJsonp(url) {
   });
 }
 
+/* ── localStorage price history for TODAY change ── */
+const PT_LS_KEY = 'ptPriceHistory_v1';
+function ptPriceStoreSave() {
+  try {
+    const today = new Date().toLocaleDateString('en-CA');
+    const stored = JSON.parse(localStorage.getItem(PT_LS_KEY) || '{}');
+    const snap = {};
+    Object.entries(ptCache).forEach(([t, c]) => { if (c.price > 0) snap[t] = c.price; });
+    const keep = {};
+    keep[today] = snap;
+    // keep yesterday's snapshot too
+    const yd = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
+    if (stored[yd]) keep[yd] = stored[yd];
+    localStorage.setItem(PT_LS_KEY, JSON.stringify(keep));
+  } catch(e) {}
+}
+function ptPriceStoreLoadPrevClose() {
+  try {
+    const yd = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
+    const stored = JSON.parse(localStorage.getItem(PT_LS_KEY) || '{}');
+    const prev = stored[yd] || {};
+    Object.entries(prev).forEach(([t, price]) => {
+      if (ptCache[t] && !ptCache[t].prevClose && price > 0) ptCache[t].prevClose = price;
+    });
+  } catch(e) {}
+}
+
 async function ptFetchLive() {
   if (ptFetching) return;
   ptFetching = true;
@@ -1409,6 +1436,8 @@ async function ptFetchLive() {
     Object.entries(j.prices || {}).forEach(([t, d]) => {
       ptCache[t] = { ...d, ts: Date.now() };
     });
+    ptPriceStoreSave();
+    ptPriceStoreLoadPrevClose();
     console.log('✅ Live prices:', Object.keys(j.prices || {}).length, 'tickers');
   } catch(e) {
     console.warn('JSONP failed:', e.message);
@@ -1422,12 +1451,20 @@ async function ptFetchLive() {
         const price = parseFloat((await spotR.json()).data.amount);
         const hist  = await histR.json();
         const prevClose = hist?.Data?.Data?.[0]?.close || 0;
-        if (price > 0) ptCache['BTC-CAD'] = { price, prevClose: prevClose || undefined, currency:'CAD', name:'Bitcoin', ts:Date.now() };
+        if (price > 0) {
+          ptCache['BTC-CAD'] = { price, prevClose: prevClose || undefined, currency:'CAD', name:'Bitcoin', ts:Date.now() };
+          ptPriceStoreSave();
+          ptPriceStoreLoadPrevClose();
+        }
       } catch(e2) {
         try {
           const r = await fetch('https://api.coinbase.com/v2/prices/BTC-CAD/spot');
           const p = parseFloat((await r.json()).data.amount);
-          if (p > 0) ptCache['BTC-CAD'] = { price:p, currency:'CAD', name:'Bitcoin', ts:Date.now() };
+          if (p > 0) {
+            ptCache['BTC-CAD'] = { price:p, currency:'CAD', name:'Bitcoin', ts:Date.now() };
+            ptPriceStoreSave();
+            ptPriceStoreLoadPrevClose();
+          }
         } catch(e3) {}
       }
     }
@@ -2298,7 +2335,7 @@ function reRender() {
         <div onclick="reDetailsToggle()" style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;">
           <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">Details</span>
           <span style="font-size:0.9rem;color:var(--muted);display:inline-block;
-              transform:rotate(${reDetailsExpanded?'0':'180deg'});transition:transform 0.2s;">▾</span>
+              transform:rotate(${reDetailsExpanded?180:0}deg);transition:transform 0.25s;">▾</span>
         </div>
         ${E
           ? `<button onclick="reDone()" class="btn btn-success" style="font-size:0.72rem;padding:5px 12px;">✓ Save</button>`
