@@ -1360,11 +1360,10 @@ async function initPrimaryResidence() {
    PORTFOLIO STATE
 ══════════════════════════════════════════════════════ */
 let ptAccts    = JSON.parse(JSON.stringify(PT_DEFAULT));
-let ptExpanded = false;
 let ptEditMode = false;
+let ptDetailsExpanded = false;
 let reEditMode = false;
-let reExpanded = true;
-let reDetailsExpanded = true;
+let reDetailsExpanded = false;
 let ptFetching = false;
 const ptCache  = {};   /* ticker → { price, name, ts } */
 const PT_TTL   = 300000;
@@ -1825,19 +1824,16 @@ function ptRender() {
       </div>`
     : '';
   const header = `
-    <div style="border-bottom:${ptExpanded?'1px solid var(--border)':'none'};user-select:none;">
+    <div style="user-select:none;">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;
         padding:12px 18px 11px;border-left:3px solid var(--accent);background:var(--surface2);
         border-bottom:1px solid var(--border);">
-        <div onclick="ptToggle()" style="flex:1;cursor:pointer;">
+        <div>
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);margin-bottom:1px;">Investment Accounts</div>
           <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">As of ${todayStr}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-          <span onclick="ptToggle()" style="color:var(--muted);font-size:1rem;cursor:pointer;display:inline-block;transition:transform 0.25s;transform:rotate(${ptExpanded?180:0}deg);">▾</span>
-        </div>
       </div>
-      <div onclick="ptToggle()" style="padding:14px 18px 16px;cursor:pointer;">
+      <div style="padding:14px 18px 16px;">
         <div style="font-family:var(--fh);font-size:2rem;font-weight:800;line-height:1;
           color:${finTotal>0?'var(--green)':'var(--muted)'};font-variant-numeric:tabular-nums;margin-bottom:12px;">
           ${finTotal > 0 ? fmtC(finTotal) : '<span style="font-size:1.2rem;font-weight:400;">Loading…</span>'}
@@ -1848,11 +1844,6 @@ function ptRender() {
         </div>
       </div>
     </div>`;
-
-  if (!ptExpanded) {
-    root.innerHTML = `<div class="card">${header}</div>`;
-    window.scrollTo(0,sy); return;
-  }
 
   /* ── financial rows ── */
   const finAccts = ptAccts.filter(a => a.group === 'financial');
@@ -2098,19 +2089,31 @@ function ptRender() {
       </div>`;
   }).join('');
 
+  /* ── Details toggle row ── */
+  const ptDetailsRow = `
+    <div style="border-top:1px solid var(--border);padding:9px 16px;
+        display:flex;align-items:center;justify-content:space-between;">
+      <div onclick="ptDetailsToggle()" style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;">
+        <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">Details</span>
+        <span style="font-size:0.9rem;color:var(--muted);display:inline-block;
+            transform:rotate(${ptDetailsExpanded?180:0}deg);transition:transform 0.25s;">▾</span>
+      </div>
+      ${E
+        ? `<button onclick="ptDone()" class="btn btn-success" style="padding:5px 12px;font-size:0.72rem;flex-shrink:0;">✓ Save</button>`
+        : `<button onclick="event.stopPropagation();requirePwd(()=>{ptEditMode=true;ptDetailsExpanded=true;ptRender();})" class="btn" style="padding:5px 12px;font-size:0.72rem;flex-shrink:0;">✎ Edit</button>`
+      }
+    </div>`;
+
   /* ── assemble ── */
   root.innerHTML = `<div class="card">
     ${header}
-    <div style="animation:fadeIn 0.2s ease;">
+    ${ptDetailsRow}
+    ${(ptDetailsExpanded || E) ? `<div style="animation:fadeIn 0.2s ease;">
       <div class="pt-group-hdr" style="background:rgba(37,99,235,0.03);">
         <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);">📊 Financial Investments</span>
         <div style="display:flex;align-items:center;gap:10px;">
           <span id="pt-saved" style="font-size:12px;color:var(--green);opacity:0;transition:opacity 0.3s;font-weight:600;">✓ Saved</span>
           <span style="font-family:var(--fh);font-size:0.9rem;font-weight:700;color:var(--text);">${fmtC(finTotal)}</span>
-          ${E
-            ? `<button onclick="ptDone()" class="btn btn-success" style="padding:6px 14px;font-size:0.72rem;">✓ Save</button>`
-            : `<button onclick="requirePwd(()=>{ptEditMode=true;ptRender();})" class="btn" style="padding:6px 14px;font-size:0.72rem;">✎ Edit</button>`
-          }
         </div>
       </div>
       ${E ? `<div class="pt-col-hdr pt-fin-grid">
@@ -2126,7 +2129,7 @@ function ptRender() {
         <div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px;">BTC-CAD &amp; XEQT.TO fetch live · all others use manual price</div>
       </div>` : ''}
       ${ptRenderExposure()}
-    </div>
+    </div>` : ''}
   </div>`;
   window.scrollTo(0, sy);
 }
@@ -2134,7 +2137,7 @@ function ptRender() {
 /* ══════════════════════════════════════════════════════
    ACTIONS
 ══════════════════════════════════════════════════════ */
-function ptToggle() { ptExpanded = !ptExpanded; ptRender(); }
+function ptDetailsToggle() { ptDetailsExpanded = !ptDetailsExpanded; ptRender(); }
 
 async function ptRefresh(btn) {
   if (btn) { btn.textContent='…'; btn.disabled=true; }
@@ -2153,7 +2156,6 @@ async function ptDone() {
 /* ══════════════════════════════════════════════════════
    REAL ESTATE RENDER
 ══════════════════════════════════════════════════════ */
-function reToggle() { reExpanded = !reExpanded; reRender(); }
 function reDetailsToggle() { reDetailsExpanded = !reDetailsExpanded; reRender(); }
 
 function reRender() {
@@ -2285,44 +2287,37 @@ function reRender() {
     <div style="display:flex;align-items:flex-start;justify-content:space-between;
         padding:12px 18px 11px;border-left:3px solid var(--accent);background:var(--surface2);
         border-bottom:1px solid var(--border);">
-      <div onclick="reToggle()" style="flex:1;cursor:pointer;">
+      <div>
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);margin-bottom:1px;">Real Estate</div>
         <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">As of ${todayStr}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-        <span onclick="reToggle()" style="color:var(--muted);font-size:1rem;cursor:pointer;display:inline-block;transition:transform 0.25s;transform:rotate(${reExpanded?180:0}deg);">▾</span>
-      </div>
     </div>
 
-    ${reExpanded ? `<div style="animation:fadeIn 0.2s ease;">
-
-      <!-- Summary body: main equity number + ROI row -->
-      <div onclick="reToggle()" style="padding:14px 18px 16px;cursor:pointer;">
-        <div style="font-family:var(--fh);font-size:2rem;font-weight:800;line-height:1;
-            font-variant-numeric:tabular-nums;margin-bottom:12px;
-            color:${totalEquity>0?'var(--green)':'var(--red)'};">${fmtC(totalEquity)}</div>
-        <div style="display:flex;flex-direction:column;gap:7px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;
-              background:var(--surface2);border-radius:10px;padding:7px 12px;">
-            <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">Return on Investment</span>
-            <div style="display:flex;align-items:center;gap:6px;font-family:var(--fh);
-                font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;
-                color:${roiPos?'var(--green)':'var(--red)'};">
-              <span>${roiPos?'+':''}${fmtC(roiGain)}</span>
-              ${roiPct!==null?`<span style="display:inline-flex;align-items:center;padding:2px 8px;
-                  border-radius:20px;font-size:11px;font-weight:700;
-                  color:${roiPos?'var(--green)':'var(--red)'};
-                  background:${roiPos?'rgba(22,163,74,0.10)':'rgba(220,38,38,0.10)'};">
-                ${roiPos?'+':''}${roiPct}%</span>`:''}
-            </div>
-          </div>
-          <div style="font-size:10px;color:var(--muted);text-align:right;padding-right:4px;">
-            vs. ${fmtC(totalInvested)} invested${totalAdditional > 0 ? ` (${fmtC(totalDown)} down + ${fmtC(totalAdditional)} extra)` : ' (down payment)'}
+    <!-- Summary body: main equity number + ROI row — always visible -->
+    <div style="padding:14px 18px 16px;">
+      <div style="font-family:var(--fh);font-size:2rem;font-weight:800;line-height:1;
+          font-variant-numeric:tabular-nums;margin-bottom:12px;
+          color:${totalEquity>0?'var(--green)':'var(--red)'};">${fmtC(totalEquity)}</div>
+      <div style="display:flex;flex-direction:column;gap:7px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;
+            background:var(--surface2);border-radius:10px;padding:7px 12px;">
+          <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">Return on Investment</span>
+          <div style="display:flex;align-items:center;gap:6px;font-family:var(--fh);
+              font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;
+              color:${roiPos?'var(--green)':'var(--red)'};">
+            <span>${roiPos?'+':''}${fmtC(roiGain)}</span>
+            ${roiPct!==null?`<span style="display:inline-flex;align-items:center;padding:2px 8px;
+                border-radius:20px;font-size:11px;font-weight:700;
+                color:${roiPos?'var(--green)':'var(--red)'};
+                background:${roiPos?'rgba(22,163,74,0.10)':'rgba(220,38,38,0.10)'};">
+              ${roiPos?'+':''}${roiPct}%</span>`:''}
           </div>
         </div>
+        <div style="font-size:10px;color:var(--muted);text-align:right;padding-right:4px;">
+          vs. ${fmtC(totalInvested)} invested${totalAdditional > 0 ? ` (${fmtC(totalDown)} down + ${fmtC(totalAdditional)} extra)` : ' (down payment)'}
+        </div>
       </div>
-
-    </div>` : ''}
+    </div>
 
     <!-- Details toggle row — always visible -->
     <div style="border-top:1px solid var(--border);padding:9px 16px;
