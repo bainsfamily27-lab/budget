@@ -436,7 +436,7 @@ const PT_DEFAULT = [
     accountType:'Rental Property (1/3 share)', location:'Woodstock, ON',
     propertyValue:216667, mortgageBalance:169175,
     purchasePrice:236667, downPayment:47333, additionalInvestment:8982,
-    rate:3.84, monthlyPayment:862, payoffDate:'Jan 2052',
+    rate:3.84, monthlyPayment:862, payoffDate:'Jan 2052', termMaturity:'Nov 2028',
     note:"Your 1/3 of $650K property · full mortgage $507,524"
   }
 ];
@@ -446,12 +446,12 @@ const PT_DEFAULT = [
 ══════════════════════════════════════════════════════ */
 const PR_DEFAULT = {
   value:        1100000,
-  mortgage:     500642.11,
-  rate:         3.84,
-  payment:      2585.08,
-  paymentDay:   20,
-  maturity:     'Nov 2028',
-  renewRate:    3.84,
+  mortgage:     302562.68,
+  rate:         3.93,
+  payment:      3800,
+  paymentDay:   15,
+  maturity:     'Jul 2028',
+  renewRate:    3.93,
   address:      'Ajax, ON'
 };
 let prData     = JSON.parse(JSON.stringify(PR_DEFAULT));
@@ -462,16 +462,6 @@ async function prLoad() {
   try {
     const d = STATE.settings;
     if (d && d.prData) prData = { ...PR_DEFAULT, ...d.prData };
-    // Nov 2026: update stale Firebase values if they still match old defaults
-    if (Math.abs(prData.mortgage - 302562.68) < 1 || Math.abs(prData.payment - 3800) < 1) {
-      prData.mortgage   = PR_DEFAULT.mortgage;
-      prData.rate       = PR_DEFAULT.rate;
-      prData.payment    = PR_DEFAULT.payment;
-      prData.paymentDay = PR_DEFAULT.paymentDay;
-      prData.maturity   = PR_DEFAULT.maturity;
-      prData.renewRate  = PR_DEFAULT.renewRate;
-      await prSave();
-    }
   } catch(e) {}
 }
 
@@ -1516,11 +1506,14 @@ async function ptLoad() {
         const re = PT_DEFAULT.find(a => a.group === 'real_estate');
         if (re) ptAccts.push(JSON.parse(JSON.stringify(re)));
       }
-      // Backfill additionalInvestment only if not yet in Firebase (new field added Nov 2026)
+      // Backfill new fields only if not yet in Firebase
       const reIdx = ptAccts.findIndex(a => a.group === 'real_estate');
       const reDefault = PT_DEFAULT.find(a => a.group === 'real_estate');
-      if (reIdx >= 0 && reDefault && ptAccts[reIdx].additionalInvestment === undefined) {
-        ptAccts[reIdx].additionalInvestment = reDefault.additionalInvestment || 0;
+      if (reIdx >= 0 && reDefault) {
+        if (ptAccts[reIdx].additionalInvestment === undefined)
+          ptAccts[reIdx].additionalInvestment = reDefault.additionalInvestment || 0;
+        if (ptAccts[reIdx].termMaturity === undefined)
+          ptAccts[reIdx].termMaturity = reDefault.termMaturity || '';
       }
       // Ensure RPP (Rani) account exists (added after initial save)
       if (!ptAccts.some(a => a.id === 'manulife-rpp-rani')) {
@@ -2066,6 +2059,10 @@ function ptRender() {
               <input type="number" inputmode="decimal" value="${acc.monthlyPayment||''}" onfocus="this.select()" oninput="ptAccts[${ai}].monthlyPayment=parseFloat(this.value)||0" style="font-weight:600;color:var(--accent);">
             </div>
             <div>
+              <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Term Maturity</div>
+              <input type="text" value="${san(acc.termMaturity||'')}" onfocus="this.select()" oninput="ptAccts[${ai}].termMaturity=this.value" placeholder="e.g. Nov 2028" style="color:var(--accent);">
+            </div>
+            <div>
               <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Payoff Date</div>
               <input type="text" value="${san(acc.payoffDate||'')}" onfocus="this.select()" oninput="ptAccts[${ai}].payoffDate=this.value" style="color:var(--accent);">
             </div>
@@ -2100,6 +2097,7 @@ function ptRender() {
         <div style="padding:0 20px 12px;display:flex;gap:14px;flex-wrap:wrap;">
           ${acc.rate         ? `<span style="font-size:11px;color:var(--muted);">Rate <strong style="color:var(--accent);">${acc.rate}%</strong></span>` : ''}
           ${acc.monthlyPayment ? `<span style="font-size:11px;color:var(--muted);">Monthly <strong style="color:var(--accent);">${fmtC(acc.monthlyPayment)}</strong></span>` : ''}
+          ${acc.termMaturity  ? `<span style="font-size:11px;color:var(--muted);">Matures <strong style="color:var(--accent);">${san(acc.termMaturity)}</strong></span>` : ''}
           ${acc.payoffDate    ? `<span style="font-size:11px;color:var(--muted);">Payoff <strong style="color:var(--accent);">${san(acc.payoffDate)}</strong></span>` : ''}
           ${acc.note          ? `<span style="font-size:11px;color:var(--muted);font-style:italic;">${san(acc.note)}</span>` : ''}
         </div>
