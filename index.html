@@ -1334,7 +1334,7 @@ function ptJsonp(url) {
   return new Promise((res, rej) => {
     const cb = 'ptcb_' + Date.now();
     const el = document.createElement('script');
-    const t  = setTimeout(() => { cleanup(); rej(new Error('timeout')); }, 12000);
+    const t  = setTimeout(() => { cleanup(); rej(new Error('timeout')); }, 25000);
     window[cb] = data => { cleanup(); res(data); };
     el.onerror = () => { cleanup(); rej(new Error('script error')); };
     el.src = url + '&callback=' + cb;
