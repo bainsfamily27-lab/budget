@@ -1833,7 +1833,11 @@ function ptRender() {
       const priceStr = isLive
         ? (liveP ? fmtC2(liveP.price) + ' CAD' : '—')
         : (h.manualPrice > 0 ? fmtC2(h.manualPrice) + '/unit' : 'enter price');
-      const bv       = h.bookValue || 0;
+      const bv       = h.bookValue || (()=>{
+        const da = PT_DEFAULT.find(a => a.id === acc.id);
+        const dh = da && da.holdings && da.holdings.find(x => x.ticker === h.ticker);
+        return (dh && dh.bookValue) || 0;
+      })();
       const gain     = bv > 0 && val > 0 ? val - bv : null;
       const gainPct  = gain !== null && bv > 0 ? (gain / bv * 100) : null;
       const gainStr  = gain !== null
