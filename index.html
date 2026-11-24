@@ -1424,6 +1424,13 @@ async function ptLoad() {
       }
       // Enforce live tickers: BTC-CAD and XEQT.TO. Everything else is manual.
       const PT_LIVE_TICKERS = ['BTC-CAD', 'XEQT.TO', '0P000070BP.TO', '0P000071B4.TO', '0P000071JF.TO', '0P000070AD.TO', '0P00007069.TO', '0P0001OCCA.TO'];
+      // Build book value lookup from defaults (by ticker + account id)
+      const BV_MAP = {};
+      PT_DEFAULT.forEach(acc => {
+        if (acc.holdings) acc.holdings.forEach(h => {
+          if (h.bookValue) BV_MAP[acc.id + '|' + h.ticker] = h.bookValue;
+        });
+      });
       ptAccts.forEach(acc => {
         if (acc.holdings) {
           acc.holdings.forEach(h => {
@@ -1431,6 +1438,11 @@ async function ptLoad() {
               h.manualPrice = null;   // force live
             } else if (h.manualPrice === null) {
               h.manualPrice = 0;      // force manual if was previously live
+            }
+            // Merge book value from defaults if not already saved
+            if (!h.bookValue) {
+              const bv = BV_MAP[acc.id + '|' + h.ticker];
+              if (bv) h.bookValue = bv;
             }
           });
         }
