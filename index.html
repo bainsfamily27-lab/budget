@@ -1394,19 +1394,20 @@ function ptPriceStoreSave() {
     const stored = JSON.parse(localStorage.getItem(PT_LS_KEY) || '{}');
     const snap = {};
     Object.entries(ptCache).forEach(([t, c]) => { if (c.price > 0) snap[t] = c.price; });
-    const keep = {};
-    keep[today] = snap;
-    // keep yesterday's snapshot too
-    const yd = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
-    if (stored[yd]) keep[yd] = stored[yd];
-    localStorage.setItem(PT_LS_KEY, JSON.stringify(keep));
+    stored[today] = snap;
+    // keep last 7 days only
+    const cutoff = new Date(Date.now() - 7 * 86400000).toLocaleDateString('en-CA');
+    Object.keys(stored).forEach(k => { if (k < cutoff) delete stored[k]; });
+    localStorage.setItem(PT_LS_KEY, JSON.stringify(stored));
   } catch(e) {}
 }
 function ptPriceStoreLoadPrevClose() {
   try {
-    const yd = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
+    const today = new Date().toLocaleDateString('en-CA');
     const stored = JSON.parse(localStorage.getItem(PT_LS_KEY) || '{}');
-    const prev = stored[yd] || {};
+    // find most recent previous day (not today)
+    const prevDay = Object.keys(stored).filter(k => k < today).sort().pop();
+    const prev = prevDay ? (stored[prevDay] || {}) : {};
     Object.entries(prev).forEach(([t, price]) => {
       if (ptCache[t] && !ptCache[t].prevClose && price > 0) ptCache[t].prevClose = price;
     });
