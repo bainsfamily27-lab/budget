@@ -1364,6 +1364,7 @@ let ptExpanded = false;
 let ptEditMode = false;
 let reEditMode = false;
 let reExpanded = true;
+let reDetailsExpanded = false;
 let ptFetching = false;
 const ptCache  = {};   /* ticker → { price, name, ts } */
 const PT_TTL   = 300000;
@@ -2114,6 +2115,7 @@ async function ptDone() {
    REAL ESTATE RENDER
 ══════════════════════════════════════════════════════ */
 function reToggle() { reExpanded = !reExpanded; reRender(); }
+function reDetailsToggle() { reDetailsExpanded = !reDetailsExpanded; reRender(); }
 
 function reRender() {
   const root = $('re-root');
@@ -2123,11 +2125,13 @@ function reRender() {
   if (!reAccts.length) { root.innerHTML = ''; return; }
 
   /* ── totals across all RE accounts ── */
-  const totalEquity = reAccts.reduce((s, a) => s + Math.max(0, (a.propertyValue||0) - (a.mortgageBalance||0)), 0);
-  const totalDown   = reAccts.reduce((s, a) => s + (a.downPayment||0), 0);
-  const roiGain     = totalEquity - totalDown;
-  const roiPct      = totalDown > 0 ? (roiGain / totalDown * 100).toFixed(1) : null;
-  const roiPos      = roiGain >= 0;
+  const totalEquity    = reAccts.reduce((s, a) => s + Math.max(0, (a.propertyValue||0) - (a.mortgageBalance||0)), 0);
+  const totalDown      = reAccts.reduce((s, a) => s + (a.downPayment||0), 0);
+  const totalAdditional= reAccts.reduce((s, a) => s + (a.additionalInvestment||0), 0);
+  const totalInvested  = totalDown + totalAdditional;
+  const roiGain        = totalEquity - totalInvested;
+  const roiPct         = totalInvested > 0 ? (roiGain / totalInvested * 100).toFixed(1) : null;
+  const roiPos         = roiGain >= 0;
 
   const todayStr = new Date().toLocaleDateString('en-CA', {
     year:'numeric', month:'long', day:'numeric',
@@ -2175,10 +2179,20 @@ function reRender() {
               oninput="ptAccts[${ai}].monthlyPayment=parseFloat(this.value)||0;" style="color:var(--accent);">
           </div>
         </div>
-        <div>
-          <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Payoff Date</div>
-          <input type="text" value="${san(acc.payoffDate||'')}" oninput="ptAccts[${ai}].payoffDate=this.value;" style="color:var(--accent);">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:10px;color:var(--accent);font-weight:600;margin-bottom:3px;">Additional Invested ($)</div>
+            <input type="number" inputmode="decimal" value="${acc.additionalInvestment||''}" placeholder="0"
+              onfocus="this.select()"
+              oninput="ptAccts[${ai}].additionalInvestment=parseFloat(this.value)||0;reRender();"
+              style="color:var(--accent);">
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:3px;">Payoff Date</div>
+            <input type="text" value="${san(acc.payoffDate||'')}" oninput="ptAccts[${ai}].payoffDate=this.value;" style="color:var(--accent);">
+          </div>
         </div>
+        <div style="font-size:10px;color:var(--muted);padding-top:4px;">Extra repairs, upgrades, or other costs beyond down payment</div>
       </div>` : '';
 
     return `
@@ -2275,13 +2289,21 @@ function reRender() {
             </div>
           </div>
           <div style="font-size:10px;color:var(--muted);text-align:right;padding-right:4px;">
-            vs. down payment of ${fmtC(totalDown)}
+            vs. ${fmtC(totalInvested)} invested${totalAdditional > 0 ? ` (${fmtC(totalDown)} down + ${fmtC(totalAdditional)} extra)` : ' (down payment)'}
           </div>
         </div>
       </div>
 
-      <!-- Per-property breakdown -->
-      ${propertyRows}
+      <!-- Details toggle row -->
+      <div onclick="reDetailsToggle()" style="border-top:1px solid var(--border);padding:9px 16px;
+          display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+        <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">Details</span>
+        <span style="font-size:0.9rem;color:var(--muted);display:inline-block;
+            transform:rotate(${reDetailsExpanded?'0':'180deg'});transition:transform 0.2s;">▾</span>
+      </div>
+
+      <!-- Per-property breakdown (hidden by default) -->
+      ${(reDetailsExpanded || E) ? propertyRows : ''}
 
     </div>` : ''}
   </div>`;
