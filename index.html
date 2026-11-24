@@ -2238,17 +2238,11 @@ function reRender() {
           </div>
         </div>
 
-        <!-- Mortgage terms + edit button -->
-        <div style="padding:8px 16px 12px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-            ${acc.rate          ? `<span style="font-size:11px;color:var(--muted);">Rate <strong style="color:var(--accent);">${acc.rate}%</strong></span>` : ''}
-            ${acc.monthlyPayment ? `<span style="font-size:11px;color:var(--muted);">Monthly <strong style="color:var(--accent);">${fmtC(acc.monthlyPayment)}</strong></span>` : ''}
-            ${acc.payoffDate    ? `<span style="font-size:11px;color:var(--muted);">Payoff <strong style="color:var(--accent);">${san(acc.payoffDate)}</strong></span>` : ''}
-          </div>
-          ${E
-            ? `<button onclick="reDone()" class="btn btn-success" style="font-size:0.72rem;padding:6px 14px;">✓ Save</button>`
-            : `<button onclick="requirePwd(()=>{reEditMode=true;reRender();})" class="btn" style="font-size:0.72rem;padding:6px 14px;">✎ Edit</button>`
-          }
+        <!-- Mortgage terms -->
+        <div style="padding:8px 16px 12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          ${acc.rate          ? `<span style="font-size:11px;color:var(--muted);">Rate <strong style="color:var(--accent);">${acc.rate}%</strong></span>` : ''}
+          ${acc.monthlyPayment ? `<span style="font-size:11px;color:var(--muted);">Monthly <strong style="color:var(--accent);">${fmtC(acc.monthlyPayment)}</strong></span>` : ''}
+          ${acc.payoffDate    ? `<span style="font-size:11px;color:var(--muted);">Payoff <strong style="color:var(--accent);">${san(acc.payoffDate)}</strong></span>` : ''}
         </div>
         ${editSection}
       </div>`;
@@ -2257,21 +2251,16 @@ function reRender() {
   /* ── assemble card ── */
   root.innerHTML = `<div class="card">
 
-    <!-- Header (matches Investment Accounts purple bar style) -->
-    <div onclick="reToggle()" style="display:flex;align-items:center;justify-content:space-between;
-        padding:11px 16px 11px 13px;background:var(--surface2);
-        border-left:3px solid var(--accent);border-bottom:1px solid var(--border);cursor:pointer;">
-      <div>
+    <!-- Header -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;
+        padding:12px 18px 11px;border-left:3px solid var(--accent);background:var(--surface2);
+        border-bottom:1px solid var(--border);">
+      <div onclick="reToggle()" style="flex:1;cursor:pointer;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);margin-bottom:1px;">Real Estate</div>
         <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">As of ${todayStr}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;" onclick="event.stopPropagation()">
-        ${E
-          ? `<button onclick="reDone()" class="btn btn-success" style="padding:6px 14px;font-size:0.72rem;">✓ Save</button>`
-          : `<button onclick="requirePwd(()=>{reEditMode=true;reRender();})" class="btn" style="padding:6px 14px;font-size:0.72rem;">✎ Edit</button>`
-        }
-        <span onclick="reToggle()" style="font-size:1rem;color:var(--muted);cursor:pointer;display:inline-block;
-          transform:rotate(${reExpanded?'0':'180deg'});transition:transform 0.2s;">▾</span>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <span onclick="reToggle()" style="color:var(--muted);font-size:1rem;cursor:pointer;display:inline-block;transition:transform 0.25s;transform:rotate(${reExpanded?180:0}deg);">▾</span>
       </div>
     </div>
 
@@ -2304,11 +2293,17 @@ function reRender() {
       </div>
 
       <!-- Details toggle row -->
-      <div onclick="reDetailsToggle()" style="border-top:1px solid var(--border);padding:9px 16px;
-          display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
-        <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">Details</span>
-        <span style="font-size:0.9rem;color:var(--muted);display:inline-block;
-            transform:rotate(${reDetailsExpanded?'0':'180deg'});transition:transform 0.2s;">▾</span>
+      <div style="border-top:1px solid var(--border);padding:9px 16px;
+          display:flex;align-items:center;justify-content:space-between;">
+        <div onclick="reDetailsToggle()" style="display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;">
+          <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">Details</span>
+          <span style="font-size:0.9rem;color:var(--muted);display:inline-block;
+              transform:rotate(${reDetailsExpanded?'0':'180deg'});transition:transform 0.2s;">▾</span>
+        </div>
+        ${E
+          ? `<button onclick="reDone()" class="btn btn-success" style="font-size:0.72rem;padding:5px 12px;">✓ Save</button>`
+          : `<button onclick="event.stopPropagation();requirePwd(()=>{reEditMode=true;reDetailsExpanded=true;reRender();})" class="btn" style="font-size:0.72rem;padding:5px 12px;">✎ Edit</button>`
+        }
       </div>
 
       <!-- Per-property breakdown (hidden by default) -->
