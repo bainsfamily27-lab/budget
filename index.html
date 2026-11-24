@@ -2313,8 +2313,13 @@ function reRender() {
               ${roiPos?'+':''}${roiPct}%</span>`:''}
           </div>
         </div>
+        ${totalAdditional > 0 ? `<div style="display:flex;align-items:center;justify-content:space-between;
+            background:var(--surface2);border-radius:10px;padding:7px 12px;">
+          <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">Additional Investment</span>
+          <span style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);">${fmtC(totalAdditional)}</span>
+        </div>` : ''}
         <div style="font-size:10px;color:var(--muted);text-align:right;padding-right:4px;">
-          vs. ${fmtC(totalInvested)} invested${totalAdditional > 0 ? ` (${fmtC(totalDown)} down + ${fmtC(totalAdditional)} extra)` : ' (down payment)'}
+          vs. ${fmtC(totalInvested)} total invested
         </div>
       </div>
     </div>
