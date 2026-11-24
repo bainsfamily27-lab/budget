@@ -1760,32 +1760,68 @@ function ptRender() {
     : '';
 
   /* ── collapsed header ── */
-  const header = `
-    <div style="padding:18px 20px;display:flex;align-items:center;
-      justify-content:space-between;user-select:none;
-      border-bottom:${ptExpanded?'1px solid var(--border)':'none'};">
-      <div onclick="ptToggle()" style="flex:1;cursor:pointer;transition:background 0.15s;">
-
-        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--green);margin-bottom:3px;">
-          ${ptLastUpdated ? 'Investment Portfolio as of ' + ptLastUpdated : 'Investment Portfolio'}
+  const todayStr = new Date().toLocaleDateString('en-CA', {year:'numeric', month:'long', day:'numeric', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone});
+  const todayRowHtml = liveDollarChange !== 0 || finTotal > 0
+    ? `<div style="display:flex;align-items:center;justify-content:space-between;
+        background:var(--surface2);border-radius:10px;padding:7px 12px;">
+        <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">Today</span>
+        <div style="display:flex;align-items:center;gap:6px;font-family:var(--fh);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;">
+          ${liveDollarChange !== 0
+            ? `<span style="color:${liveDollarChange>=0?'var(--green)':'var(--red)'};">${liveDollarChange>=0?'+':''}${fmtC(liveDollarChange)}</span>
+               <span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;
+                 background:${liveDollarChange>=0?'rgba(22,163,74,0.10)':'rgba(220,38,38,0.10)'};
+                 color:${liveDollarChange>=0?'var(--green)':'var(--red)'};">
+                 ${liveDollarChange>=0?'+':''}${finTotal>0?(liveDollarChange/finTotal*100).toFixed(2):'0.00'}%</span>`
+            : `<span style="color:var(--muted);">+$0</span>
+               <span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;
+                 background:var(--surface2);color:var(--muted);border:1px solid var(--border2);">+0.00%</span>`
+          }
         </div>
-        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:2px;">
-          <div style="font-family:var(--fh);font-size:1.8rem;font-weight:800;line-height:1;color:${finTotal>0?'var(--green)':'var(--muted)'};">
-            ${finTotal > 0 ? fmtC(finTotal) : '<span style="font-size:1.2rem;font-weight:400;">Loading…</span>'}
-          </div>
-          ${todayBadge}
-          ${totalGainBadge}
+      </div>`
+    : '';
+  const allTimeRowHtml = bookHasData
+    ? `<div style="display:flex;align-items:center;justify-content:space-between;
+        background:var(--surface2);border-radius:10px;padding:7px 12px;">
+        <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">All-time gain</span>
+        <div style="display:flex;align-items:center;gap:6px;font-family:var(--fh);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;
+          color:${totalBookGain>=0?'var(--green)':'var(--red)'};">
+          <span>${totalBookGain>=0?'+':''}${fmtC(totalBookGain)}</span>
+          <span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;
+            background:${totalBookGain>=0?'rgba(22,163,74,0.10)':'rgba(220,38,38,0.10)'};
+            color:${totalBookGain>=0?'var(--green)':'var(--red)'};">
+            ${totalBookGain>=0?'+':''}${totalBookValue>0?(totalBookGain/totalBookValue*100).toFixed(1):'0.0'}%</span>
+        </div>
+      </div>`
+    : '';
+  const header = `
+    <div style="border-bottom:${ptExpanded?'1px solid var(--border)':'none'};user-select:none;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;
+        padding:12px 18px 11px;border-left:3px solid var(--accent);background:var(--surface2);
+        border-bottom:1px solid var(--border);">
+        <div onclick="ptToggle()" style="flex:1;cursor:pointer;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);margin-bottom:1px;">Investment Portfolio</div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">As of ${todayStr}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <button onclick="event.stopPropagation();ptRefresh(this)"
+            style="background:none;border:1px solid var(--border2);border-radius:50%;width:30px;height:30px;
+            font-size:14px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;
+            transition:all 0.15s;flex-shrink:0;"
+            onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+            onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted)'"
+            title="Refresh live prices">↻</button>
+          <span onclick="ptToggle()" style="color:var(--muted);font-size:1rem;cursor:pointer;display:inline-block;transition:transform 0.25s;transform:rotate(${ptExpanded?180:0}deg);">▾</span>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-        <button onclick="event.stopPropagation();ptRefresh(this)"
-          style="background:none;border:1px solid var(--border2);border-radius:50%;width:32px;height:32px;
-          font-size:14px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;
-          transition:all 0.15s;flex-shrink:0;"
-          onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
-          onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted)'"
-          title="Refresh live prices">↻</button>
-        <span onclick="ptToggle()" style="color:var(--muted);font-size:1rem;cursor:pointer;display:inline-block;transition:transform 0.25s;transform:rotate(${ptExpanded?180:0}deg);">▾</span>
+      <div onclick="ptToggle()" style="padding:14px 18px 16px;cursor:pointer;">
+        <div style="font-family:var(--fh);font-size:2rem;font-weight:800;line-height:1;
+          color:${finTotal>0?'var(--green)':'var(--muted)'};font-variant-numeric:tabular-nums;margin-bottom:12px;">
+          ${finTotal > 0 ? fmtC(finTotal) : '<span style="font-size:1.2rem;font-weight:400;">Loading…</span>'}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px;">
+          ${todayRowHtml}
+          ${allTimeRowHtml}
+        </div>
       </div>
     </div>`;
 
