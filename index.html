@@ -355,7 +355,7 @@ const PT_DEFAULT = [
     id:'td-tfsa-manny', group:'financial',
     accountType:'TFSA (Manny)', location:'TD',
     holdings:[
-      { ticker:'XEQT.TO', name:'iShares Core Equity ETF', qty:256, qtyLabel:'shares', manualPrice:0 }
+      { ticker:'XEQT.TO', name:'iShares Core Equity ETF', qty:256, qtyLabel:'shares', manualPrice:null }
     ]
   },
   {
@@ -1422,11 +1422,12 @@ async function ptLoad() {
           ptAccts.splice(reIdx >= 0 ? reIdx : ptAccts.length, 0, JSON.parse(JSON.stringify(rpp)));
         }
       }
-      // Enforce: ONLY BTC-CAD is live. Everything else is manual.
+      // Enforce live tickers: BTC-CAD and XEQT.TO. Everything else is manual.
+      const PT_LIVE_TICKERS = ['BTC-CAD', 'XEQT.TO'];
       ptAccts.forEach(acc => {
         if (acc.holdings) {
           acc.holdings.forEach(h => {
-            if (h.ticker === 'BTC-CAD') {
+            if (PT_LIVE_TICKERS.includes(h.ticker)) {
               h.manualPrice = null;   // force live
             } else if (h.manualPrice === null) {
               h.manualPrice = 0;      // force manual if was previously live
@@ -1646,22 +1647,47 @@ function ptRender() {
   const grand    = finTotal + reTotal;
   const E        = ptEditMode;
 
-  const lastUpdatedBar = '';
+  /* ── today's change calculation (live holdings only) ── */
+  let liveDollarChange = 0;
+  let liveChangeHasData = false;
+  ptAccts.filter(a => a.group === 'financial').forEach(acc => {
+    acc.holdings.filter(h => h.manualPrice === null).forEach(h => {
+      const c = ptCache[h.ticker];
+      if (c && c.prevClose && c.price && h.qty > 0) {
+        liveDollarChange += (c.price - c.prevClose) * h.qty;
+        liveChangeHasData = true;
+      }
+    });
+  });
+  const changeColor = liveDollarChange >= 0 ? 'var(--green)' : 'var(--red)';
+  const changeSign  = liveDollarChange >= 0 ? '+' : '';
+  const changePct   = finTotal > 0 && liveChangeHasData
+    ? ' (' + changeSign + (liveDollarChange / (finTotal - liveDollarChange) * 100).toFixed(2) + '%)'
+    : '';
+  const todayBadge  = liveChangeHasData
+    ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;
+        color:${changeColor};background:${liveDollarChange>=0?'rgba(22,163,74,0.08)':'rgba(220,38,38,0.08)'};
+        border:1px solid ${liveDollarChange>=0?'rgba(22,163,74,0.2)':'rgba(220,38,38,0.2)'};
+        border-radius:20px;padding:2px 10px;margin-left:8px;">
+        ${liveDollarChange >= 0 ? '▲' : '▼'} ${changeSign}${fmtC(Math.abs(liveDollarChange))}${changePct} today
+      </span>`
+    : '';
 
   /* ── collapsed header ── */
   const header = `
-    <div onclick="ptToggle()" style="padding:18px 20px;display:flex;align-items:center;
-      justify-content:space-between;cursor:pointer;user-select:none;transition:background 0.15s;
-      border-bottom:${ptExpanded?'1px solid var(--border)':'none'};"
-      onmouseover="this.style.background='var(--surface2)'"
-      onmouseout="this.style.background='transparent'">
-      <div>
+    <div style="padding:18px 20px;display:flex;align-items:center;
+      justify-content:space-between;user-select:none;
+      border-bottom:${ptExpanded?'1px solid var(--border)':'none'};">
+      <div onclick="ptToggle()" style="flex:1;cursor:pointer;transition:background 0.15s;">
 
         <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--green);margin-bottom:3px;">
           ${ptLastUpdated ? 'Total Investment Portfolio Value as of ' + ptLastUpdated : 'Total Investment Portfolio Value'}
         </div>
-        <div style="font-family:var(--fh);font-size:1.8rem;font-weight:800;line-height:1;color:${grand>0?'var(--green)':'var(--muted)'};margin-bottom:2px;">
-          ${grand > 0 ? fmtC(grand) : '<span style="font-size:1.2rem;font-weight:400;">Loading…</span>'}
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:2px;">
+          <div style="font-family:var(--fh);font-size:1.8rem;font-weight:800;line-height:1;color:${grand>0?'var(--green)':'var(--muted)'};">
+            ${grand > 0 ? fmtC(grand) : '<span style="font-size:1.2rem;font-weight:400;">Loading…</span>'}
+          </div>
+          ${todayBadge}
         </div>
         <div style="font-size:0.7rem;color:var(--muted);margin-top:5px;display:flex;gap:14px;flex-wrap:wrap;">
           <span>📊 Investments <strong style="color:var(--text);">${fmtC(finTotal)}</strong></span>
@@ -1669,7 +1695,14 @@ function ptRender() {
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-        <span style="color:var(--muted);font-size:1rem;display:inline-block;transition:transform 0.25s;transform:rotate(${ptExpanded?180:0}deg);">▾</span>
+        <button onclick="event.stopPropagation();ptRefresh(this)"
+          style="background:none;border:1px solid var(--border2);border-radius:50%;width:32px;height:32px;
+          font-size:14px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;
+          transition:all 0.15s;flex-shrink:0;"
+          onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+          onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted)'"
+          title="Refresh live prices">↻</button>
+        <span onclick="ptToggle()" style="color:var(--muted);font-size:1rem;cursor:pointer;display:inline-block;transition:transform 0.25s;transform:rotate(${ptExpanded?180:0}deg);">▾</span>
       </div>
     </div>`;
 
@@ -1982,6 +2015,9 @@ async function init() {
 
   /* fetch live prices in background → re-render */
   ptFetchLive().then(() => ptRender());
+
+  /* auto-refresh live prices every 5 minutes while page is open */
+  setInterval(() => { ptFetchLive().then(() => ptRender()); }, 300000);
 
   /* Primary Residence */
   await initPrimaryResidence();
