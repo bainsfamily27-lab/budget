@@ -1430,7 +1430,10 @@ function ptPriceStoreLoadPrevClose() {
 async function ptFetchLive() {
   if (ptFetching) return;
   ptFetching = true;
-  /* Only fetch tickers where manualPrice === null */
+
+  /* Pre-prime prevClose from yesterday's localStorage before any network call */
+  ptPriceStoreLoadPrevClose();
+
   const liveTickers = [...new Set(
     ptAccts.filter(a => a.group === 'financial')
       .flatMap(a => a.holdings)
@@ -1443,45 +1446,57 @@ async function ptFetchLive() {
   });
   if (!stale.length) { ptFetching = false; return; }
 
-  try {
-    const url = PT_URL + '?action=prices&symbols=' + encodeURIComponent(stale.join(','));
-    const j   = await ptJsonp(url);
-    Object.entries(j.prices || {}).forEach(([t, d]) => {
-      ptCache[t] = { ...d, ts: Date.now() };
-    });
-    ptPriceStoreSave();
-    ptPriceStoreLoadPrevClose();
-    console.log('✅ Live prices:', Object.keys(j.prices || {}).length, 'tickers');
-  } catch(e) {
-    console.warn('JSONP failed:', e.message);
-    /* BTC direct fallback — price from Coinbase, prevClose from CryptoCompare */
-    if (stale.includes('BTC-CAD')) {
-      try {
-        const [spotR, histR] = await Promise.all([
-          fetch('https://api.coinbase.com/v2/prices/BTC-CAD/spot'),
-          fetch('https://min-api.cryptocompare.com/data/v2/histoday?fsym=BTC&tsym=CAD&limit=1')
-        ]);
-        const price = parseFloat((await spotR.json()).data.amount);
-        const hist  = await histR.json();
-        const prevClose = hist?.Data?.Data?.[0]?.close || 0;
-        if (price > 0) {
-          ptCache['BTC-CAD'] = { price, prevClose: prevClose || undefined, currency:'CAD', name:'Bitcoin', ts:Date.now() };
-          ptPriceStoreSave();
-          ptPriceStoreLoadPrevClose();
-        }
-      } catch(e2) {
-        try {
-          const r = await fetch('https://api.coinbase.com/v2/prices/BTC-CAD/spot');
-          const p = parseFloat((await r.json()).data.amount);
-          if (p > 0) {
-            ptCache['BTC-CAD'] = { price:p, currency:'CAD', name:'Bitcoin', ts:Date.now() };
-            ptPriceStoreSave();
-            ptPriceStoreLoadPrevClose();
-          }
-        } catch(e3) {}
+  /* BTC-CAD: ALWAYS fetch from Coinbase (price) + CryptoCompare (yesterday's midnight close).
+     BTC trades 24/7 so prevClose is always available — no localStorage dependency. */
+  const btcTask = stale.includes('BTC-CAD') ? (async () => {
+    try {
+      const [spotR, histR] = await Promise.all([
+        fetch('https://api.coinbase.com/v2/prices/BTC-CAD/spot'),
+        fetch('https://min-api.cryptocompare.com/data/v2/histoday?fsym=BTC&tsym=CAD&limit=1')
+      ]);
+      const price     = parseFloat((await spotR.json()).data.amount);
+      const hist      = await histR.json();
+      const prevClose = hist?.Data?.Data?.[0]?.close || 0;
+      if (price > 0) {
+        ptCache['BTC-CAD'] = {
+          ...(ptCache['BTC-CAD'] || {}),
+          price, currency:'CAD', name:'Bitcoin', ts: Date.now(),
+          ...(prevClose > 0 ? { prevClose } : {})
+        };
       }
+    } catch(e) { console.warn('BTC fetch failed:', e.message); }
+  })() : Promise.resolve();
+
+  /* Stocks / ETFs via Google Apps Script JSONP (BTC handled separately above) */
+  const scriptStale = stale.filter(t => t !== 'BTC-CAD');
+  if (scriptStale.length) {
+    try {
+      const url = PT_URL + '?action=prices&symbols=' + encodeURIComponent(scriptStale.join(','));
+      const j   = await ptJsonp(url);
+      Object.entries(j.prices || {}).forEach(([t, d]) => {
+        /* Merge into existing cache entry so prevClose (from localStorage) is preserved
+           if the script doesn't return one */
+        ptCache[t] = { ...(ptCache[t] || {}), ...d, ts: Date.now() };
+      });
+      console.log('✅ Live prices:', Object.keys(j.prices || {}).length, 'tickers');
+    } catch(e) {
+      console.warn('JSONP failed:', e.message);
     }
   }
+
+  await btcTask;
+
+  ptPriceStoreSave();
+  ptPriceStoreLoadPrevClose();
+
+  /* Persist today's prices to Firebase so any device can get yesterday's close tomorrow */
+  try {
+    const today = new Date().toLocaleDateString('en-CA');
+    const snap  = {};
+    Object.entries(ptCache).forEach(([t, c]) => { if (c.price > 0) snap[t] = c.price; });
+    if (Object.keys(snap).length) fbSet('budget/marketData', { prevClose: { date: today, prices: snap } });
+  } catch(e) {}
+
   ptFetching = false;
 }
 
@@ -2394,6 +2409,22 @@ async function init() {
 
   /* load saved portfolio accounts */
   await ptLoad();
+
+  /* Cross-device prevClose: load yesterday's price snapshot from Firebase so "Today" change
+     works on any device, not just the one that was open yesterday */
+  try {
+    const s = await fbGet('budget/marketData');
+    if (s.exists) {
+      const md   = s.data();
+      const today = new Date().toLocaleDateString('en-CA');
+      if (md?.prevClose?.date && md.prevClose.date < today && md.prevClose.prices) {
+        Object.entries(md.prevClose.prices).forEach(([t, price]) => {
+          if (!ptCache[t]) ptCache[t] = {};
+          if (!ptCache[t].prevClose && price > 0) ptCache[t].prevClose = price;
+        });
+      }
+    }
+  } catch(e) {}
 
   /* render immediately (shows manual values right away) */
   ptRender();
