@@ -462,7 +462,18 @@ async function prLoad() {
   try {
     const d = STATE.settings;
     if (d && d.prData) prData = { ...PR_DEFAULT, ...d.prData };
-    // Backfill updated mortgage balance if still at old default
+    // Fix: bad commit wrote Woodstock rental values into prData — detect and reset
+    const woodstockMortgage = Math.abs(prData.mortgage - 500642.11) < 1;
+    const woodstockRate     = Math.abs((prData.rate || 0) - 3.84) < 0.001;
+    if (woodstockMortgage || (woodstockRate && prData.mortgage > 400000)) {
+      prData.mortgage   = 263367.83;
+      prData.rate       = 3.93;
+      prData.payment    = 3800;
+      prData.renewRate  = 3.93;
+      prData.maturity   = 'Jul 2028';
+      await fbSet('budget/settings', { prData }); // persist fix to Firebase
+    }
+    // Also fix old stale default balance
     if (prData.mortgage === 302562.68) prData.mortgage = 263367.83;
   } catch(e) {}
 }
