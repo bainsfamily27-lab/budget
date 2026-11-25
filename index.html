@@ -458,10 +458,15 @@ let prData     = JSON.parse(JSON.stringify(PR_DEFAULT));
 let prEditMode = false;
 let prExpanded = false;
 
+/* ── Net Worth ── */
+let nwCash     = 0;
+let nwExpanded = false;
+
 async function prLoad() {
   try {
     const d = STATE.settings;
     if (d && d.prData) prData = { ...PR_DEFAULT, ...d.prData };
+    if (d && typeof d.nwCash === 'number') nwCash = d.nwCash;
     // Fix: bad commit wrote Woodstock rental values into prData — detect and reset
     const woodstockMortgage = Math.abs(prData.mortgage - 500642.11) < 1;
     const woodstockRate     = Math.abs((prData.rate || 0) - 3.84) < 0.001;
@@ -482,7 +487,86 @@ async function prSave() {
   try {
     await fbSet('budget/settings', { prData });
     saved('pr-saved');
+    nwRender();
   } catch(e) { console.warn('prSave failed', e); }
+}
+
+async function nwSave() {
+  try { await fbSet('budget/settings', { nwCash }); } catch(e) {}
+}
+
+function nwRow(label, val, dotColor, valColor) {
+  return `<div style="display:flex;align-items:center;justify-content:space-between;
+    background:var(--surface2);border-radius:9px;padding:7px 11px;gap:8px;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0;"></div>
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">${label}</div>
+    </div>
+    <div style="font-family:var(--fh);font-size:12px;font-weight:700;color:${valColor};font-variant-numeric:tabular-nums;">${val}</div>
+  </div>`;
+}
+
+function nwRender() {
+  const root = $('nw-root');
+  if (!root) return;
+
+  const finTotal    = ptGroupTotal('financial');
+  const reAccts     = ptAccts.filter(a => a.group === 'real_estate');
+  const rePropTotal = reAccts.reduce((s, a) => s + (a.propertyValue || 0), 0);
+  const reMortTotal = reAccts.reduce((s, a) => s + (a.mortgageBalance || 0), 0);
+  const prAsset     = prData.value || 0;
+  const prMort      = prData.mortgage || 0;
+  const totalAssets = finTotal + prAsset + rePropTotal + nwCash;
+  const totalLiab   = prMort + reMortTotal;
+  const netWorth    = totalAssets - totalLiab;
+
+  root.innerHTML = `
+    <div style="background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;">
+      <div onclick="nwExpanded=!nwExpanded;nwRender();" style="cursor:pointer;user-select:none;
+        padding:12px 18px 11px;border-left:3px solid var(--accent);background:var(--surface2);
+        display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);">Total Net Worth</div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">Assets − Liabilities</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-family:var(--fh);font-size:1.5rem;font-weight:800;color:var(--green);font-variant-numeric:tabular-nums;">${fmtC(netWorth)}</span>
+          <span style="font-size:11px;color:var(--muted);">${nwExpanded ? '▲' : '▼'}</span>
+        </div>
+      </div>
+      ${nwExpanded ? `
+      <div style="padding:12px 18px 14px;display:flex;flex-direction:column;gap:5px;">
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--green);padding:4px 2px 2px;">Assets</div>
+        ${nwRow('Investments', fmtC(finTotal), 'var(--accent)', 'var(--fg)')}
+        ${nwRow('Primary Home', fmtC(prAsset), 'var(--green)', 'var(--fg)')}
+        ${rePropTotal > 0 ? nwRow('Rental (1/3)', fmtC(rePropTotal), '#0891b2', 'var(--fg)') : ''}
+        <div style="display:flex;align-items:center;justify-content:space-between;
+          background:transparent;border:1px dashed var(--border);border-radius:9px;padding:7px 11px;gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:7px;height:7px;border-radius:50%;background:var(--border);flex-shrink:0;"></div>
+            <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">Cash &amp; Savings</div>
+          </div>
+          <input type="number" inputmode="decimal" value="${nwCash || ''}" placeholder="0"
+            onfocus="this.select()"
+            oninput="nwCash=parseFloat(this.value)||0;nwSave();"
+            style="width:110px;text-align:right;background:transparent;border:none;outline:none;
+              font-family:var(--fh);font-size:12px;font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums;">
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;
+          background:rgba(0,0,0,0.03);border-top:1px solid var(--border);border-radius:9px;padding:7px 11px;">
+          <div style="font-size:11px;font-weight:700;color:var(--fg);text-transform:uppercase;letter-spacing:0.05em;">Total Assets</div>
+          <div style="font-family:var(--fh);font-size:13px;font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums;">${fmtC(totalAssets)}</div>
+        </div>
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--red);padding:6px 2px 2px;">Liabilities</div>
+        ${nwRow('Primary Mortgage', '−' + fmtC(prMort), '#dc2626', 'var(--red)')}
+        ${reMortTotal > 0 ? nwRow('Rental Mortgage (1/3)', '−' + fmtC(reMortTotal), '#f97316', 'var(--red)') : ''}
+        <div style="display:flex;align-items:center;justify-content:space-between;
+          background:rgba(0,0,0,0.03);border-top:1px solid var(--border);border-radius:9px;padding:7px 11px;">
+          <div style="font-size:11px;font-weight:700;color:var(--fg);text-transform:uppercase;letter-spacing:0.05em;">Total Liabilities</div>
+          <div style="font-family:var(--fh);font-size:13px;font-weight:700;color:var(--red);font-variant-numeric:tabular-nums;">−${fmtC(totalLiab)}</div>
+        </div>
+      </div>` : ''}
+    </div>`;
 }
 
 function prCalc() {
@@ -2219,6 +2303,7 @@ function ptRender() {
     </div>` : ''}
   </div>`;
   window.scrollTo(0, sy);
+  nwRender();
 }
 
 /* ══════════════════════════════════════════════════════
@@ -2442,6 +2527,10 @@ async function init() {
 
   /* render shell */
   $('app').innerHTML = `
+    <div class="section-wrap">
+      <div class="sec-label">Net Worth</div>
+      <div id="nw-root"></div>
+    </div>
     <div class="section-wrap">
       <div class="sec-label">Investment Portfolio</div>
       <div id="pt-root"></div>
