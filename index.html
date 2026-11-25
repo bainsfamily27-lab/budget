@@ -1883,7 +1883,7 @@ function ptRender() {
                <span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;
                  background:${liveDollarChange>=0?'rgba(22,163,74,0.10)':'rgba(220,38,38,0.10)'};
                  color:${liveDollarChange>=0?'var(--green)':'var(--red)'};">
-                 ${liveDollarChange>=0?'+':''}${finTotal>0?(liveDollarChange/finTotal*100).toFixed(2):'0.00'}%</span>`
+                 ${liveDollarChange>=0?'+':''}${(finTotal-liveDollarChange)>0?(liveDollarChange/(finTotal-liveDollarChange)*100).toFixed(2):'0.00'}%</span>`
             : `<span style="color:var(--muted);font-size:12px;">—</span>`
           }
         </div>
