@@ -2269,10 +2269,6 @@ function ptRender() {
   root.innerHTML = `<div class="card">
     ${header}
     ${(ptDetailsExpanded || E) ? `<div style="animation:fadeIn 0.2s ease;">
-      <div style="padding:12px 18px 10px;display:flex;flex-direction:column;gap:7px;border-bottom:1px solid var(--border);">
-        ${todayRowHtml}
-        ${allTimeRowHtml}
-      </div>
       <div class="pt-group-hdr" style="background:rgba(37,99,235,0.03);">
         <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);">📊 Financial Investments</span>
         <div style="display:flex;align-items:center;gap:10px;">
