@@ -528,7 +528,7 @@ function nwRender() {
         display:flex;align-items:center;justify-content:space-between;">
         <div>
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);">Total Net Worth</div>
-          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">Assets − Liabilities</div>
+
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-family:var(--fh);font-size:1.5rem;font-weight:800;color:var(--green);font-variant-numeric:tabular-nums;">${fmtC(netWorth)}</span>
@@ -537,7 +537,6 @@ function nwRender() {
       </div>
       ${nwExpanded ? `
       <div style="padding:12px 18px 14px;display:flex;flex-direction:column;gap:5px;">
-        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--green);padding:4px 2px 2px;">Assets</div>
         ${nwRow('Investments', fmtC(finTotal), 'var(--accent)', 'var(--text)')}
         ${nwRow('Primary Home', fmtC(prAsset), 'var(--green)', 'var(--text)')}
         ${rePropTotal > 0 ? nwRow('Rental (1/3)', fmtC(rePropTotal), '#0891b2', 'var(--text)') : ''}
@@ -561,7 +560,6 @@ function nwRender() {
           <div style="font-size:11px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:0.05em;">Total Assets</div>
           <div style="font-family:var(--fh);font-size:13px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;">${fmtC(totalAssets)}</div>
         </div>
-        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--red);padding:6px 2px 2px;">Liabilities</div>
         ${nwRow('Primary Mortgage', '−' + fmtC(prMort), '#dc2626', 'var(--red)')}
         ${reMortTotal > 0 ? nwRow('Rental Mortgage (1/3)', '−' + fmtC(reMortTotal), '#f97316', 'var(--red)') : ''}
         <div style="display:flex;align-items:center;justify-content:space-between;
