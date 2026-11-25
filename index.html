@@ -648,25 +648,24 @@ function prRender() {
 
   /* ── Collapsed header (always visible) ── */
   const hdr = `
-    <div onclick="${E ? '' : 'prToggle()'}" style="padding:16px 20px;display:flex;align-items:center;
-      justify-content:space-between;cursor:${E ? 'default' : 'pointer'};user-select:none;
-      transition:background 0.15s;border-bottom:${prExpanded || E ? '1px solid var(--border)' : 'none'};"
-      ${E ? '' : 'onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'transparent\'"'}>
+    <div onclick="${E ? '' : 'prToggle()'}" style="padding:12px 18px 11px;border-left:3px solid var(--accent);background:var(--surface2);
+      display:flex;align-items:center;justify-content:space-between;
+      cursor:${E ? 'default' : 'pointer'};user-select:none;
+      border-bottom:${prExpanded || E ? '1px solid var(--border)' : 'none'};">
       <div>
-
-        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--red);margin-bottom:3px;">Remaining Mortgage</div>
-        <div style="font-family:var(--fh);font-size:1.8rem;font-weight:800;line-height:1;color:var(--text);margin-bottom:7px;">${fmtC(prData.mortgage)}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--red);margin-bottom:3px;">Primary Residence</div>
+        <div style="font-family:var(--fh);font-size:1.5rem;font-weight:800;line-height:1;color:var(--text);margin-bottom:5px;">${fmtC(prData.mortgage)}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;">
           <span style="font-size:10px;font-weight:600;background:var(--green-dim);color:#15803d;border:1px solid rgba(22,163,74,0.25);padding:2px 9px;border-radius:20px;">Payoff ${payoffDate}</span>
-          <span style="font-size:10px;font-weight:600;background:var(--surface2);color:var(--muted);border:1px solid var(--border2);padding:2px 9px;border-radius:20px;">${timeLeft} remaining</span>
-          <span style="font-size:10px;font-weight:600;background:var(--surface2);color:var(--muted);border:1px solid var(--border2);padding:2px 9px;border-radius:20px;">👨 ${agesAtPayoff.manny} · 👩 ${agesAtPayoff.rani} · 👧 ${agesAtPayoff.noor} · 👦 ${agesAtPayoff.veer}</span>
+          <span style="font-size:10px;font-weight:600;background:rgba(0,0,0,0.04);color:var(--muted);border:1px solid var(--border2);padding:2px 9px;border-radius:20px;">${timeLeft}</span>
+          <span style="font-size:10px;font-weight:600;background:rgba(0,0,0,0.04);color:var(--muted);border:1px solid var(--border2);padding:2px 9px;border-radius:20px;">👨 ${agesAtPayoff.manny} · 👩 ${agesAtPayoff.rani} · 👧 ${agesAtPayoff.noor} · 👦 ${agesAtPayoff.veer}</span>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
         <span id="pr-saved" style="font-size:12px;color:var(--green);opacity:0;transition:opacity 0.3s;font-weight:600;">✓ Saved</span>
         ${E
           ? `<button onclick="event.stopPropagation();prEditMode=false;prRender();prSave();" class="btn btn-success" style="padding:5px 16px;">✓ Save</button>`
-          : `<span style="color:var(--muted);font-size:1rem;display:inline-block;transition:transform 0.25s;transform:rotate(${prExpanded?180:0}deg);">▾</span>`
+          : `<span style="font-size:11px;color:var(--muted);">${prExpanded ? '▲' : '▼'}</span>`
         }
       </div>
     </div>`;
@@ -829,17 +828,15 @@ function expRender() {
 
   /* collapsed header */
   const hdr = `
-    <div onclick="${E ? '' : 'expToggle()'}" style="padding:18px 20px;display:flex;align-items:center;
-      justify-content:space-between;cursor:${E ? 'default' : 'pointer'};user-select:none;transition:background 0.15s;
-      border-bottom:${expExpanded || E ? '1px solid var(--border)' : 'none'};"
-      ${E ? '' : `onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='transparent'"`}>
-      <div>
-        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--red);margin-bottom:3px;">Total Monthly Expenses</div>
-        <div style="font-family:var(--fh);font-size:1.8rem;font-weight:800;line-height:1;color:var(--text);">${fmtC(total)}<span style="font-size:0.9rem;font-weight:500;color:var(--muted);margin-left:4px;">/mo</span></div>
-      </div>
+    <div onclick="${E ? '' : 'expToggle()'}" style="padding:12px 18px 11px;border-left:3px solid var(--accent);background:var(--surface2);
+      display:flex;align-items:center;justify-content:space-between;
+      cursor:${E ? 'default' : 'pointer'};user-select:none;
+      border-bottom:${expExpanded || E ? '1px solid var(--border)' : 'none'};">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--red);">Total Monthly Expenses</div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
         <span id="exp-saved" style="font-size:12px;color:var(--green);opacity:0;transition:opacity 0.3s;font-weight:600;">✓ Saved</span>
-        <span style="color:var(--muted);font-size:1rem;display:inline-block;transition:transform 0.25s;transform:rotate(${expExpanded||E?180:0}deg);">▾</span>
+        <span style="font-family:var(--fh);font-size:1.5rem;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);">${fmtC(total)}<span style="font-size:0.9rem;font-weight:500;color:var(--muted);margin-left:4px;">/mo</span></span>
+        <span style="font-size:11px;color:var(--muted);">${expExpanded||E ? '▲' : '▼'}</span>
       </div>
     </div>`;
 
@@ -1164,22 +1161,22 @@ function respRender() {
   var veerUni     = respUniYear(respData.veer.born);
   var nowYear     = new Date().getFullYear();
 
-  var hdrInner = '<div>'
-    + '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--green);margin-bottom:3px;">RESP · Current Value</div>'
-    + '<div style="font-family:var(--fh);font-size:1.8rem;font-weight:800;line-height:1;color:var(--text);margin-bottom:5px;">' + (totalBal > 0 ? fmtC(totalBal) : '<span style="color:var(--muted);font-size:1rem;font-weight:500;">Update portfolio prices</span>') + '</div>'
-    + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;">'
-    + '<span class="pill-green" style="font-size:10px;font-weight:600;background:#f0fdf4;color:#15803d;border:1px solid rgba(22,163,74,0.25);padding:2px 9px;border-radius:20px;">👧 Noor · ' + noorUni + '</span>'
-    + '<span class="pill-green" style="font-size:10px;font-weight:600;background:#f0fdf4;color:#15803d;border:1px solid rgba(22,163,74,0.25);padding:2px 9px;border-radius:20px;">👦 Veer · ' + veerUni + '</span>'
-    + '</div></div>';
+  var hdrInner = '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--green);">Kids Education (RESP)</div>';
 
   var hdrRight = '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">'
     + '<span id="resp-saved" style="font-size:12px;color:var(--green);opacity:0;transition:opacity 0.3s;font-weight:600;">✓ Saved</span>'
-    + '<span style="color:var(--muted);font-size:1rem;transition:transform 0.25s;transform:rotate(' + (respExpanded||E?180:0) + 'deg);">▾</span>'
+    + '<div style="text-align:right;">'
+    + '<div style="font-family:var(--fh);font-size:1.5rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;color:var(--text);">' + (totalBal > 0 ? fmtC(totalBal) : '<span style="color:var(--muted);font-size:0.9rem;font-weight:500;">Loading…</span>') + '</div>'
+    + '<div style="display:flex;gap:5px;justify-content:flex-end;margin-top:4px;">'
+    + '<span style="font-size:10px;font-weight:600;background:#f0fdf4;color:#15803d;border:1px solid rgba(22,163,74,0.25);padding:1px 7px;border-radius:20px;">👧 ' + noorUni + '</span>'
+    + '<span style="font-size:10px;font-weight:600;background:#f0fdf4;color:#15803d;border:1px solid rgba(22,163,74,0.25);padding:1px 7px;border-radius:20px;">👦 ' + veerUni + '</span>'
+    + '</div></div>'
+    + '<span style="font-size:11px;color:var(--muted);">' + (respExpanded||E ? '▲' : '▼') + '</span>'
     + '</div>';
 
   var hdrDiv = E
-    ? '<div style="padding:18px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">' + hdrInner + hdrRight + '</div>'
-    : '<div onclick="respToggle()" style="padding:18px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;transition:background 0.15s;border-bottom:' + (respExpanded?'1px solid var(--border)':'none') + ';" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'transparent\'">' + hdrInner + hdrRight + '</div>';
+    ? '<div style="padding:12px 18px 11px;border-left:3px solid var(--accent);background:var(--surface2);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">' + hdrInner + hdrRight + '</div>'
+    : '<div onclick="respToggle()" style="padding:12px 18px 11px;border-left:3px solid var(--accent);background:var(--surface2);display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;border-bottom:' + (respExpanded?'1px solid var(--border)':'none') + ';">' + hdrInner + hdrRight + '</div>';
 
   if (!respExpanded && !E) {
     root.innerHTML = '<div class="card">' + hdrDiv + '</div>';
@@ -1406,18 +1403,17 @@ function insRender() {
   var totalMonthly = Object.values(INS_DATA).reduce(function(s,p){ return s + p.monthlyPremium; }, 0);
   var totalCoverage = INS_DATA.manny.deathBenefit + INS_DATA.rani.deathBenefit;
 
-  var hdrInner = '<div>'
-    + '<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--red);margin-bottom:3px;">Life Insurance</div>'
-    + '<div style="font-family:var(--fh);font-size:1.8rem;font-weight:800;line-height:1;color:var(--text);margin-bottom:5px);">'
-    + fmtC(totalMonthly) + '<span style="font-size:0.9rem;font-weight:500;color:var(--muted);margin-left:4px;">/mo total</span></div>'
-    + '<div style="font-size:11px;color:var(--muted);">👨 Manny · 👩 Rani · 👧 Noor · 👦 Veer</div>'
-    + '</div>';
+  var hdrInner = '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--red);">Life Insurance</div>';
 
   var hdrRight = '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">'
-    + '<span style="color:var(--muted);font-size:1rem;transition:transform 0.25s;transform:rotate(' + (insExpanded ? 180 : 0) + 'deg);">▾</span>'
+    + '<div style="text-align:right;">'
+    + '<div style="font-family:var(--fh);font-size:1.5rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;color:var(--text);">' + fmtC(totalMonthly) + '<span style="font-size:0.9rem;font-weight:500;color:var(--muted);margin-left:4px;">/mo</span></div>'
+    + '<div style="font-size:10px;color:var(--muted);margin-top:3px;text-align:right;">👨 Manny · 👩 Rani · 👧 Noor · 👦 Veer</div>'
+    + '</div>'
+    + '<span style="font-size:11px;color:var(--muted);">' + (insExpanded ? '▲' : '▼') + '</span>'
     + '</div>';
 
-  var hdrDiv = '<div onclick="insToggle()" style="padding:18px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;transition:background 0.15s;border-bottom:' + (insExpanded ? '1px solid var(--border)' : 'none') + ';" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'transparent\'">' + hdrInner + hdrRight + '</div>';
+  var hdrDiv = '<div onclick="insToggle()" style="padding:12px 18px 11px;border-left:3px solid var(--accent);background:var(--surface2);display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;border-bottom:' + (insExpanded ? '1px solid var(--border)' : 'none') + ';">' + hdrInner + hdrRight + '</div>';
 
   if (!insExpanded) {
     root.innerHTML = '<div class="card">' + hdrDiv + '</div>';
@@ -1998,15 +1994,21 @@ function ptRender() {
       padding:12px 18px 11px;border-left:3px solid var(--accent);background:var(--surface2);
       display:flex;align-items:center;justify-content:space-between;
       border-bottom:${(ptDetailsExpanded || E) ? '1px solid var(--border)' : 'none'};">
-      <div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);">Investment Accounts</div>
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">As of ${todayStr}</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-family:var(--fh);font-size:1.5rem;font-weight:800;font-variant-numeric:tabular-nums;
-          color:${finTotal>0?'var(--green)':'var(--muted)'};">
-          ${finTotal > 0 ? fmtC(finTotal) : '<span style="font-size:1rem;font-weight:400;">Loading…</span>'}
-        </span>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);">Investment Accounts</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="text-align:right;">
+          <div style="font-family:var(--fh);font-size:1.5rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;
+            color:${finTotal>0?'var(--green)':'var(--muted)'};">
+            ${finTotal > 0 ? fmtC(finTotal) : '<span style="font-size:1rem;font-weight:400;">Loading…</span>'}
+          </div>
+          ${bookHasData && finTotal > 0 ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:5px;margin-top:3px;">
+            <span style="font-family:var(--fh);font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;color:${bookGainColor};">${bookGainSign}${fmtC(Math.abs(totalBookGain))}</span>
+            <span style="font-size:9px;font-weight:700;border-radius:4px;padding:1px 5px;font-variant-numeric:tabular-nums;
+              background:${totalBookGain>=0?'rgba(22,163,74,0.12)':'rgba(220,38,38,0.1)'};color:${bookGainColor};">
+              ${totalBookGain>=0?'↑':'↓'} ${totalBookValue>0?Math.abs(totalBookGain/totalBookValue*100).toFixed(1):'0.0'}%
+            </span>
+          </div>` : ''}
+        </div>
         ${E
           ? `<button onclick="event.stopPropagation();ptDone();" class="btn btn-success" style="padding:5px 12px;font-size:0.72rem;">✓ Save</button>`
           : `<span style="font-size:11px;color:var(--muted);">${ptDetailsExpanded ? '▲' : '▼'}</span>`
@@ -2453,10 +2455,7 @@ function reRender() {
       padding:12px 18px 11px;border-left:3px solid var(--accent);background:var(--surface2);
       display:flex;align-items:center;justify-content:space-between;
       border-bottom:${(reDetailsExpanded || E) ? '1px solid var(--border)' : 'none'};">
-      <div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);">Real Estate Investment</div>
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">As of ${todayStr}</div>
-      </div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);">Real Estate Investment</div>
       <div style="display:flex;align-items:center;gap:10px;">
         <span style="font-family:var(--fh);font-size:1.5rem;font-weight:800;font-variant-numeric:tabular-nums;
           color:${totalEquity>0?'var(--green)':'var(--red)'};">${fmtC(totalEquity)}</span>
