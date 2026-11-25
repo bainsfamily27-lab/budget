@@ -446,7 +446,7 @@ const PT_DEFAULT = [
 ══════════════════════════════════════════════════════ */
 const PR_DEFAULT = {
   value:        1100000,
-  mortgage:     302562.68,
+  mortgage:     263367.83,
   rate:         3.93,
   payment:      3800,
   paymentDay:   15,
@@ -462,6 +462,8 @@ async function prLoad() {
   try {
     const d = STATE.settings;
     if (d && d.prData) prData = { ...PR_DEFAULT, ...d.prData };
+    // Backfill updated mortgage balance if still at old default
+    if (prData.mortgage === 302562.68) prData.mortgage = 263367.83;
   } catch(e) {}
 }
 
