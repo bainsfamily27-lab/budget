@@ -549,7 +549,7 @@ function nwRender() {
           </div>
           <input type="number" inputmode="decimal" value="${nwCash || ''}" placeholder="0"
             onfocus="this.select()"
-            oninput="nwCash=parseFloat(this.value)||0;nwSave();"
+            oninput="nwCash=parseFloat(this.value)||0;nwSave();" onblur="nwRender();"
             style="width:110px;text-align:right;background:transparent;border:none;outline:none;
               font-family:var(--fh);font-size:12px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;">
         </div>
@@ -2475,7 +2475,7 @@ function reRender() {
       <div style="display:flex;flex-direction:column;gap:7px;">
         <div style="display:flex;align-items:center;justify-content:space-between;
             background:var(--surface2);border-radius:10px;padding:7px 12px;">
-          <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">Return on Investment</span>
+          <span style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">All-Time Return</span>
           <div style="display:flex;align-items:center;gap:6px;font-family:var(--fh);
               font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;
               color:${roiPos?'var(--green)':'var(--red)'};">
