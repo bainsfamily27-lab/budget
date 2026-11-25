@@ -1617,12 +1617,13 @@ async function ptFetchLive() {
   ptPriceStoreSave();
   ptPriceStoreLoadPrevClose();
 
-  /* Persist today's prices to Firebase so any device can get yesterday's close tomorrow */
+  /* Persist today's prices to Firebase under a dated key.
+     Tomorrow any device loads this as yesterday's prevClose. */
   try {
     const today = new Date().toLocaleDateString('en-CA');
     const snap  = {};
     Object.entries(ptCache).forEach(([t, c]) => { if (c.price > 0) snap[t] = c.price; });
-    if (Object.keys(snap).length) fbSet('budget/marketData', { prevClose: { date: today, prices: snap } });
+    if (Object.keys(snap).length) fbSet('budget/marketData', { snapshots: { [today]: snap } });
   } catch(e) {}
 
   ptFetching = false;
@@ -2544,14 +2545,22 @@ async function init() {
   await ptLoad();
 
   /* Cross-device prevClose: load yesterday's price snapshot from Firebase so "Today" change
-     works on any device, not just the one that was open yesterday */
+     works on any device, not just the one that was open yesterday.
+     New format: md.snapshots[date] = {ticker: price}
+     Legacy format: md.prevClose = {date, prices} — still supported as fallback */
   try {
     const s = await fbGet('budget/marketData');
     if (s.exists) {
-      const md   = s.data();
+      const md    = s.data();
       const today = new Date().toLocaleDateString('en-CA');
-      if (md?.prevClose?.date && md.prevClose.date < today && md.prevClose.prices) {
-        Object.entries(md.prevClose.prices).forEach(([t, price]) => {
+      /* New format — find most recent snapshot before today */
+      const snaps = md?.snapshots || {};
+      const prevDay = Object.keys(snaps).filter(d => d < today).sort().pop();
+      const src = prevDay ? snaps[prevDay]
+        /* Legacy format fallback */
+        : (md?.prevClose?.date && md.prevClose.date < today ? md.prevClose.prices : null);
+      if (src) {
+        Object.entries(src).forEach(([t, price]) => {
           if (!ptCache[t]) ptCache[t] = {};
           if (!ptCache[t].prevClose && price > 0) ptCache[t].prevClose = price;
         });
