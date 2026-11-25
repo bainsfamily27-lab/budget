@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bains Family Financials</title>
+<!-- v2026.11.25c -->
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -1588,7 +1589,8 @@ async function ptFetchLive() {
       console.log('✅ Live prices:', Object.keys(j.prices || {}).length, 'tickers');
 
       /* For any stock/ETF still missing prevClose, fetch from Yahoo Finance directly.
-         This runs live today — no need to wait for the Firebase tomorrow-snapshot. */
+         This runs in the user's browser so there's no proxy restriction.
+         chartPreviousClose is the official prev-session close. */
       const needPrev = scriptStale.filter(t => t !== 'BTC-CAD' && ptCache[t]?.price > 0 && !ptCache[t]?.prevClose);
       if (needPrev.length) {
         await Promise.all(needPrev.map(async ticker => {
@@ -1597,7 +1599,7 @@ async function ptFetchLive() {
             const j2 = await r.json();
             const meta = j2?.chart?.result?.[0]?.meta;
             /* chartPreviousClose is the official prev-session close */
-            const pc = meta?.chartPreviousClose || meta?.previousClose || 0;
+            const pc = meta?.chartPreviousClose || meta?.previousClose || meta?.regularMarketPreviousClose || 0;
             if (pc > 0 && ptCache[ticker]) {
               ptCache[ticker].prevClose = pc;
               console.log(`✅ prevClose ${ticker} from Yahoo:`, pc);
