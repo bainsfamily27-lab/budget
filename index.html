@@ -1460,6 +1460,7 @@ let ptDetailsExpanded = false;
 let reEditMode = false;
 let reDetailsExpanded = false;
 let ptFetching = false;
+let ptPricesLoaded = false;
 const ptCache  = {};   /* ticker → { price, name, ts } */
 const PT_TTL   = 300000;
 let ptLastUpdated = '';
@@ -1526,7 +1527,7 @@ async function ptFetchLive() {
     const c = ptCache[t];
     return !c || Date.now() - c.ts > PT_TTL;
   });
-  if (!stale.length) { ptFetching = false; return; }
+  if (!stale.length) { ptFetching = false; ptPricesLoaded = true; return; }
 
   /* BTC-CAD: try Coinbase → CoinGecko for spot price, CryptoCompare for prevClose.
      Each fetch is independent so one failure doesn't kill the others.
@@ -1624,6 +1625,7 @@ async function ptFetchLive() {
   } catch(e) {}
 
   ptFetching = false;
+  ptPricesLoaded = true;
 }
 
 /* ══════════════════════════════════════════════════════
@@ -1997,7 +1999,7 @@ function ptRender() {
         <div style="text-align:right;">
           <div style="font-family:var(--fh);font-size:1.5rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;
             color:${finTotal>0?'var(--green)':'var(--muted)'};">
-            ${finTotal > 0 ? fmtC(finTotal) : '<span style="font-size:1rem;font-weight:400;">Loading…</span>'}
+            ${finTotal > 0 ? fmtC(finTotal) : '<span style="font-size:1rem;font-weight:400;color:var(--muted);">—</span>'}
           </div>
           ${bookHasData && finTotal > 0 ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:5px;margin-top:3px;">
             <span style="font-family:var(--fh);font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;color:${bookGainColor};">${bookGainSign}${fmtC(Math.abs(totalBookGain))}</span>
@@ -2271,7 +2273,7 @@ function ptRender() {
         <span style="font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--muted);">📊 Financial Investments</span>
         <div style="display:flex;align-items:center;gap:10px;">
           <span id="pt-saved" style="font-size:12px;color:var(--green);opacity:0;transition:opacity 0.3s;font-weight:600;">✓ Saved</span>
-          <span style="font-family:var(--fh);font-size:0.9rem;font-weight:700;color:var(--text);">${fmtC(finTotal)}</span>
+          <span style="font-family:var(--fh);font-size:0.9rem;font-weight:700;color:${finTotal>0?'var(--text)':'var(--muted)'};">${finTotal > 0 ? fmtC(finTotal) : '—'}</span>
         </div>
       </div>
       ${E ? `<div class="pt-col-hdr pt-fin-grid">
