@@ -314,7 +314,7 @@ const fbSet = (path, data) => {
    UTILS
 ══════════════════════════════════════════════════════ */
 const $ = id => document.getElementById(id);
-const fmtC  = n => '$' + Math.round(n).toLocaleString('en-CA');
+const fmtC  = n => isFinite(n) ? '$' + Math.round(n).toLocaleString('en-CA') : '$0';
 const fmtC2 = n => '$' + Number(n).toLocaleString('en-CA',{minimumFractionDigits:2,maximumFractionDigits:2});
 const san   = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
@@ -467,7 +467,7 @@ async function prLoad() {
   try {
     const d = STATE.settings;
     if (d && d.prData) prData = { ...PR_DEFAULT, ...d.prData };
-    if (d && typeof d.nwCash === 'number') nwCash = d.nwCash;
+    if (d && typeof d.nwCash === 'number' && isFinite(d.nwCash)) nwCash = d.nwCash;
     // Fix: bad commit wrote Woodstock rental values into prData — detect and reset
     const woodstockMortgage = Math.abs(prData.mortgage - 500642.11) < 1;
     const woodstockRate     = Math.abs((prData.rate || 0) - 3.84) < 0.001;
@@ -517,7 +517,7 @@ function nwRender() {
   const reMortTotal = reAccts.reduce((s, a) => s + (a.mortgageBalance || 0), 0);
   const prAsset     = prData.value || 0;
   const prMort      = prData.mortgage || 0;
-  const totalAssets = finTotal + prAsset + rePropTotal + nwCash;
+  const totalAssets = (isFinite(finTotal) ? finTotal : 0) + prAsset + rePropTotal + (isFinite(nwCash) ? nwCash : 0);
   const totalLiab   = prMort + reMortTotal;
   const netWorth    = totalAssets - totalLiab;
 
