@@ -1473,7 +1473,7 @@ function ptJsonp(url) {
   return new Promise((res, rej) => {
     const cb = 'ptcb_' + Date.now();
     const el = document.createElement('script');
-    const t  = setTimeout(() => { cleanup(); rej(new Error('timeout')); }, 25000);
+    const t  = setTimeout(() => { cleanup(); rej(new Error('timeout')); }, 12000);
     window[cb] = data => { cleanup(); res(data); };
     el.onerror = () => { cleanup(); rej(new Error('script error')); };
     el.src = url + '&callback=' + cb;
@@ -1506,6 +1506,28 @@ function ptPriceStoreLoadPrevClose() {
     const prev = prevDay ? (stored[prevDay] || {}) : {};
     Object.entries(prev).forEach(([t, price]) => {
       if (ptCache[t] && !ptCache[t].prevClose && price > 0) ptCache[t].prevClose = price;
+    });
+  } catch(e) {}
+}
+
+/* Pre-populate cache with the most recent stored prices so UI shows something
+   immediately on load, before the live fetch completes. Entries get ts:0 so
+   they are still considered stale and will be refreshed by ptFetchLive(). */
+function ptPriceStorePreload() {
+  try {
+    const today = new Date().toLocaleDateString('en-CA');
+    const stored = JSON.parse(localStorage.getItem(PT_LS_KEY) || '{}');
+    // prefer today's snapshot if available, then most recent previous day
+    const todaySnap = stored[today] || {};
+    const prevDay   = Object.keys(stored).filter(k => k < today).sort().pop();
+    const prevSnap  = prevDay ? (stored[prevDay] || {}) : {};
+    // merge: today overrides prev
+    const best = { ...prevSnap, ...todaySnap };
+    Object.entries(best).forEach(([t, price]) => {
+      if (price > 0 && !ptCache[t]) {
+        ptCache[t] = { price, ts: 0, name: t, stale: true,
+          ...(prevSnap[t] > 0 ? { prevClose: prevSnap[t] } : {}) };
+      }
     });
   } catch(e) {}
 }
@@ -2547,7 +2569,12 @@ async function init() {
     }
   } catch(e) {}
 
-  /* render immediately (shows manual values right away) */
+  /* Pre-populate cache with stored prices so UI shows numbers immediately,
+     before the live fetch completes. Entries are marked stale (ts:0) so
+     ptFetchLive() still replaces them with fresh prices. */
+  ptPriceStorePreload();
+
+  /* render immediately (shows cached/manual values right away) */
   ptRender();
   reRender();
 
