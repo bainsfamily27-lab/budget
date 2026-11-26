@@ -1524,9 +1524,10 @@ function ptPriceStorePreload() {
     // merge: today overrides prev
     const best = { ...prevSnap, ...todaySnap };
     Object.entries(best).forEach(([t, price]) => {
-      if (price > 0 && !ptCache[t]) {
-        ptCache[t] = { price, ts: 0, name: t, stale: true,
-          ...(prevSnap[t] > 0 ? { prevClose: prevSnap[t] } : {}) };
+      if (price > 0 && !(ptCache[t]?.price > 0)) {
+        /* Merge into any existing entry (Firebase may have created one with prevClose) */
+        ptCache[t] = { ...(ptCache[t] || {}), price, ts: 0, name: ptCache[t]?.name || t,
+          ...(prevSnap[t] > 0 && !ptCache[t]?.prevClose ? { prevClose: prevSnap[t] } : {}) };
       }
     });
   } catch(e) {}
@@ -2545,6 +2546,12 @@ async function init() {
   /* load saved portfolio accounts */
   await ptLoad();
 
+  /* Pre-populate cache with stored prices so UI shows numbers immediately,
+     before the live fetch completes. Entries are marked stale (ts:0) so
+     ptFetchLive() still replaces them with fresh prices.
+     Must run BEFORE the Firebase block so Firebase can layer prevClose on top. */
+  ptPriceStorePreload();
+
   /* Cross-device prevClose: load yesterday's price snapshot from Firebase so "Today" change
      works on any device, not just the one that was open yesterday.
      New format: md.snapshots[date] = {ticker: price}
@@ -2568,11 +2575,6 @@ async function init() {
       }
     }
   } catch(e) {}
-
-  /* Pre-populate cache with stored prices so UI shows numbers immediately,
-     before the live fetch completes. Entries are marked stale (ts:0) so
-     ptFetchLive() still replaces them with fresh prices. */
-  ptPriceStorePreload();
 
   /* render immediately (shows cached/manual values right away) */
   ptRender();
