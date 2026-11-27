@@ -646,21 +646,18 @@ function prRender() {
 
   /* ── Collapsed header (always visible) ── */
   const hdr = `
-    <div onclick="${E ? '' : 'prToggle()'}" style="padding:12px 18px 11px;border-left:3px solid var(--red);background:var(--surface2);
-      display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+    <div onclick="${E ? '' : 'prToggle()'}" style="padding:12px 18px 11px;border-left:3px solid var(--accent);background:var(--surface2);
+      display:flex;align-items:center;justify-content:space-between;
       cursor:${E ? 'default' : 'pointer'};user-select:none;
       border-bottom:${prExpanded || E ? '1px solid var(--border)' : 'none'};">
-      <div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--red);margin-bottom:5px;">Primary Residence</div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;">
-          <span style="font-size:10px;font-weight:600;background:var(--green-dim);color:#15803d;border:1px solid rgba(22,163,74,0.25);padding:2px 9px;border-radius:20px;">Payoff ${payoffDate}</span>
-          <span style="font-size:10px;font-weight:600;background:rgba(0,0,0,0.04);color:var(--muted);border:1px solid var(--border2);padding:2px 9px;border-radius:20px;">${timeLeft}</span>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);">Primary Residence</div>
+      <div style="display:flex;align-items:center;gap:8px;">
         <div style="text-align:right;">
           <div style="font-family:var(--fh);font-size:1.5rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:var(--red);">${fmtC(prData.mortgage)}</div>
-          <div style="font-size:10px;color:var(--muted);font-weight:500;margin-top:3px;">Mortgage owing</div>
+          <div style="display:flex;align-items:center;justify-content:flex-end;gap:5px;margin-top:3px;">
+            <span style="font-family:var(--fh);font-size:10px;font-weight:700;color:var(--green);">Payoff ${payoffDate}</span>
+            <span style="font-size:9px;font-weight:700;border-radius:4px;padding:1px 5px;background:rgba(0,0,0,0.04);color:var(--muted);">${timeLeft}</span>
+          </div>
         </div>
         <span id="pr-saved" style="font-size:12px;color:var(--green);opacity:0;transition:opacity 0.3s;font-weight:600;">✓ Saved</span>
         ${E
