@@ -654,10 +654,7 @@ function prRender() {
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="text-align:right;">
           <div style="font-family:var(--fh);font-size:1.5rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:var(--red);">${fmtC(prData.mortgage)}</div>
-          <div style="display:flex;align-items:center;justify-content:flex-end;gap:5px;margin-top:3px;">
-            <span style="font-family:var(--fh);font-size:10px;font-weight:700;color:var(--green);">Payoff ${payoffDate}</span>
-            <span style="font-size:9px;font-weight:700;border-radius:4px;padding:1px 5px;background:rgba(0,0,0,0.04);color:var(--muted);">${timeLeft}</span>
-          </div>
+          <div style="font-size:10px;color:var(--muted);font-weight:500;margin-top:3px;">Payoff ${payoffDate} · ${timeLeft}</div>
         </div>
         <span id="pr-saved" style="font-size:12px;color:var(--green);opacity:0;transition:opacity 0.3s;font-weight:600;">✓ Saved</span>
         ${E
