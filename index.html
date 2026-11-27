@@ -653,7 +653,7 @@ function prRender() {
       <div style="flex:1;min-width:0;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);margin-bottom:6px;">Ajax Home</div>
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
-          <span style="font-size:10px;font-weight:600;background:var(--green-dim);color:#15803d;border:1px solid rgba(22,163,74,0.25);padding:2px 8px;border-radius:20px;white-space:nowrap;">Payoff ${payoffDate}</span>
+          <span style="font-size:10px;font-weight:600;background:var(--green-dim);color:#15803d;border:1px solid rgba(22,163,74,0.25);padding:2px 8px;border-radius:20px;white-space:nowrap;">${payoffDate}</span>
           <span style="font-size:10px;font-weight:600;background:rgba(0,0,0,0.04);color:var(--muted);border:1px solid var(--border2);padding:2px 8px;border-radius:20px;white-space:nowrap;">${timeLeft}</span>
         </div>
       </div>
@@ -662,7 +662,7 @@ function prRender() {
           <div style="font-family:var(--fh);font-size:1.5rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:var(--red);">${fmtC(prData.mortgage)}</div>
           <div style="font-size:10px;color:var(--muted);font-weight:500;margin-top:3px;">Mortgage owing</div>
         </div>
-        <span id="pr-saved" style="font-size:12px;color:var(--green);opacity:0;transition:opacity 0.3s;font-weight:600;">✓ Saved</span>
+        <span id="pr-saved" style="font-size:12px;color:var(--green);opacity:0;transition:opacity 0.3s;font-weight:600;position:absolute;">✓ Saved</span>
         ${E
           ? `<button onclick="event.stopPropagation();prEditMode=false;prRender();prSave();" class="btn btn-success" style="padding:5px 16px;">✓ Save</button>`
           : `<span style="font-size:11px;color:var(--muted);">${prExpanded ? '▲' : '▼'}</span>`
