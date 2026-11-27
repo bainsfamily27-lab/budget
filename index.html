@@ -202,7 +202,7 @@ input[type=number]::-webkit-outer-spin-button   { -webkit-appearance:none; margi
 /* ── PRIMARY RESIDENCE ──────────────────────────────── */
 .pr-stat-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
   padding: 16px;
 }
@@ -646,20 +646,22 @@ function prRender() {
 
   /* ── Collapsed header (always visible) ── */
   const hdr = `
-    <div onclick="${E ? '' : 'prToggle()'}" style="padding:12px 18px 11px;border-left:3px solid var(--accent);background:var(--surface2);
-      display:flex;align-items:center;justify-content:space-between;
+    <div onclick="${E ? '' : 'prToggle()'}" style="padding:12px 18px 11px;border-left:3px solid var(--red);background:var(--surface2);
+      display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
       cursor:${E ? 'default' : 'pointer'};user-select:none;
       border-bottom:${prExpanded || E ? '1px solid var(--border)' : 'none'};">
       <div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--red);margin-bottom:3px;">Primary Residence</div>
-        <div style="font-family:var(--fh);font-size:1.5rem;font-weight:800;line-height:1;color:var(--text);margin-bottom:5px;">${fmtC(prData.mortgage)}</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--red);margin-bottom:5px;">Primary Residence</div>
         <div style="display:flex;gap:5px;flex-wrap:wrap;">
           <span style="font-size:10px;font-weight:600;background:var(--green-dim);color:#15803d;border:1px solid rgba(22,163,74,0.25);padding:2px 9px;border-radius:20px;">Payoff ${payoffDate}</span>
           <span style="font-size:10px;font-weight:600;background:rgba(0,0,0,0.04);color:var(--muted);border:1px solid var(--border2);padding:2px 9px;border-radius:20px;">${timeLeft}</span>
-          <span style="font-size:10px;font-weight:600;background:rgba(0,0,0,0.04);color:var(--muted);border:1px solid var(--border2);padding:2px 9px;border-radius:20px;">👨 ${agesAtPayoff.manny} · 👩 ${agesAtPayoff.rani} · 👧 ${agesAtPayoff.noor} · 👦 ${agesAtPayoff.veer}</span>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+        <div style="text-align:right;">
+          <div style="font-family:var(--fh);font-size:1.5rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:var(--red);">${fmtC(prData.mortgage)}</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:500;margin-top:3px;">Mortgage owing</div>
+        </div>
         <span id="pr-saved" style="font-size:12px;color:var(--green);opacity:0;transition:opacity 0.3s;font-weight:600;">✓ Saved</span>
         ${E
           ? `<button onclick="event.stopPropagation();prEditMode=false;prRender();prSave();" class="btn btn-success" style="padding:5px 16px;">✓ Save</button>`
@@ -738,11 +740,6 @@ function prRender() {
           '<div class="pr-stat-val">' + fmtC(prData.value) + '</div>' +
           '<div class="pr-stat-sub">market value</div>' +
         '</div>' +
-        '<div class="pr-stat" style="border-color:rgba(220,38,38,0.2);">' +
-          '<div class="pr-stat-label" style="color:var(--red);">Balance</div>' +
-          '<div class="pr-stat-val" style="color:var(--red);">' + fmtC(prData.mortgage) + '</div>' +
-          '<div class="pr-stat-sub">' + fmtC(prData.payment) + '/mo</div>' +
-        '</div>' +
       '</div>' +
 
       '<div style="padding:4px 16px 12px;display:flex;justify-content:flex-end;gap:8px;">' +
@@ -750,8 +747,8 @@ function prRender() {
         '<button onclick="requirePwd(()=>{prEditMode=true;prRender();})" class="btn" style="padding:6px 14px;font-size:0.72rem;">✎ Edit</button>' +
       '</div>' +
       '<div style="margin:0 16px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;">' +
-        '<div style="display:grid;grid-template-columns:repeat(4,1fr);">' +
-          [['Rate', prData.rate + '%'], ['Monthly', fmtC(prData.payment)], ['Matures', san(prData.maturity)], ['Payoff', payoffDate]]
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);">' +
+          [['Monthly', fmtC(prData.payment)], ['Matures', san(prData.maturity)], ['Payoff', payoffDate]]
             .map(([l,v]) => '<div style="padding:10px 12px;border-right:0.5px solid var(--border);"><div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:3px;">' + l + '</div><div style="font-size:13px;font-weight:700;color:var(--accent);font-family:var(--fh);">' + v + '</div></div>').join('') +
         '</div>' +
         '<div style="padding:9px 12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
@@ -760,6 +757,10 @@ function prRender() {
         '</div>' +
         '<div style="padding:8px 12px;background:var(--surface2);border-top:0.5px solid var(--border);">' +
           '<span style="font-size:11px;color:var(--muted);">📍 ' + san(prData.address) + '</span>' +
+        '</div>' +
+        '<div style="padding:9px 12px;border-top:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;">' +
+          '<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);">Ages at payoff</span>' +
+          '<span style="font-size:12px;font-weight:600;color:var(--text);">👨 ' + agesAtPayoff.manny + ' · 👩 ' + agesAtPayoff.rani + ' · 👧 ' + agesAtPayoff.noor + ' · 👦 ' + agesAtPayoff.veer + '</span>' +
         '</div>' +
       '</div>' +
 
