@@ -652,9 +652,8 @@ function prRender() {
       border-bottom:${prExpanded || E ? '1px solid var(--border)' : 'none'};">
       <div style="flex:1;min-width:0;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);margin-bottom:6px;">Ajax Home</div>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
-          <span style="font-size:10px;font-weight:600;background:var(--green-dim);color:#15803d;border:1px solid rgba(22,163,74,0.25);padding:2px 8px;border-radius:20px;white-space:nowrap;">${payoffDate}</span>
-          <span style="font-size:10px;font-weight:600;background:rgba(0,0,0,0.04);color:var(--muted);border:1px solid var(--border2);padding:2px 8px;border-radius:20px;white-space:nowrap;">${timeLeft}</span>
+        <div>
+          <span style="font-size:10px;font-weight:600;background:var(--green-dim);color:#15803d;border:1px solid rgba(22,163,74,0.25);padding:2px 9px;border-radius:20px;white-space:nowrap;">${payoffDate} · ${timeLeft}</span>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
